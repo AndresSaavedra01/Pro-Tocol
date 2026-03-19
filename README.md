@@ -21,7 +21,6 @@ Aplicación cliente SSH con interfaz gráfica diseñada para administrar servido
 **Backend**
 
 * Java
-* Spring Boot
 
 **Comunicación remota**
 
