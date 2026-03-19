@@ -1,17 +1,34 @@
-# pro_tocol
+# SSH Visual Client
 
-Aplicación móvil para controlar servidores remotamente de manera grafíca
+Aplicación cliente SSH con interfaz gráfica diseñada para administrar servidores Linux sin necesidad de usar la terminal. Permite conectarse a servidores remotos, gestionar archivos, monitorear el estado del sistema y automatizar tareas mediante inteligencia artificial.
 
-## Getting Started
+## Características
 
-This project is a starting point for a Flutter application.
+* Conexión a servidores mediante **SSH**
+* Autenticación con **contraseña o llave privada**
+* **Explorador de archivos remoto** usando SFTP
+* **Monitoreo del servidor** (CPU, RAM, procesos, disco)
+* Instalación de software desde una **interfaz gráfica**
+* **Automatización de tareas** comunes de administración
+* Asistente de **IA para generar comandos y scripts**
 
-A few resources to get you started if this is your first Flutter project:
+## Tecnologías
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+**Frontend**
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+* Flutter
+
+**Backend**
+
+* Java
+* Spring Boot
+
+**Comunicación remota**
+
+* SSH
+* SFTP
+
+**IA**
+
+* Ollama
+* Modelos LLM especializados en comandos Linux
