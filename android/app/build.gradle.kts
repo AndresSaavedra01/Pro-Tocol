@@ -49,18 +49,3 @@ android {
 flutter {
     source = "../.."
 }
-
-dependencies {
-
-    // SSH
-    //implementation("com.hierynomus:sshj:0.38.0")
-    //implementation("com.hierynomus:sshj:0.30.0")
-    implementation("com.jcraft:jsch:0.1.55")
-
-    // Lombok
-    compileOnly("org.projectlombok:lombok:1.18.32")
-    annotationProcessor("org.projectlombok:lombok:1.18.32")
-
-    // SQLite (Android)
-    implementation("androidx.sqlite:sqlite:2.4.0")
-}
