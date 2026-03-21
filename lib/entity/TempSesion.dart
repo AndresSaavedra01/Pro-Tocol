@@ -1,10 +1,16 @@
 
+
 import 'package:pro_tocol/entity/BaseConnection.dart';
 
-class Tempsesion extends Baseconnection {
+class TempSession extends Baseconnection {
+  final DateTime startedAt;
+  final String connectionId; // Un ID único para identificar la pestaña abierta
 
-  int id;
-  static int count = 0;
-  Tempsesion(super.ip, super.user, super.pass) : id = count++;
-
+  TempSession({
+    required String ip,
+    required String user,
+    required String pass,
+    required this.connectionId,
+  }) : startedAt = DateTime.now(),
+        super(ip, user, pass);
 }
