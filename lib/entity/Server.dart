@@ -1,20 +1,21 @@
 
 import 'package:isar/isar.dart';
 
-import 'ShhConnection.dart';
+import 'SHHConnection.dart';
 
 part 'Server.g.dart';
 
 @collection
-class Server extends ShhConnection {
+class Server extends SHHConnection {
   Id id = Isar.autoIncrement;
   String alias;
 
   Server({
     required this.alias,
-    required String ip,
+    required String host,
     required String user,
+    required int port,
     required String pass,
-  }) : super(ip, user, pass); // Pasamos los datos al padre
+  }) : super(host, user, port, pass);
 }
 

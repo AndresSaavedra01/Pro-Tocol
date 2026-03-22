@@ -22,9 +22,9 @@ const ServerSchema = CollectionSchema(
       name: r'alias',
       type: IsarType.string,
     ),
-    r'ip': PropertySchema(
+    r'host': PropertySchema(
       id: 1,
-      name: r'ip',
+      name: r'host',
       type: IsarType.string,
     ),
     r'pass': PropertySchema(
@@ -32,8 +32,13 @@ const ServerSchema = CollectionSchema(
       name: r'pass',
       type: IsarType.string,
     ),
-    r'user': PropertySchema(
+    r'port': PropertySchema(
       id: 3,
+      name: r'port',
+      type: IsarType.long,
+    ),
+    r'user': PropertySchema(
+      id: 4,
       name: r'user',
       type: IsarType.string,
     )
@@ -59,7 +64,7 @@ int _serverEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.alias.length * 3;
-  bytesCount += 3 + object.ip.length * 3;
+  bytesCount += 3 + object.host.length * 3;
   bytesCount += 3 + object.pass.length * 3;
   bytesCount += 3 + object.user.length * 3;
   return bytesCount;
@@ -72,9 +77,10 @@ void _serverSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.alias);
-  writer.writeString(offsets[1], object.ip);
+  writer.writeString(offsets[1], object.host);
   writer.writeString(offsets[2], object.pass);
-  writer.writeString(offsets[3], object.user);
+  writer.writeLong(offsets[3], object.port);
+  writer.writeString(offsets[4], object.user);
 }
 
 Server _serverDeserialize(
@@ -85,9 +91,10 @@ Server _serverDeserialize(
 ) {
   final object = Server(
     alias: reader.readString(offsets[0]),
-    ip: reader.readString(offsets[1]),
+    host: reader.readString(offsets[1]),
     pass: reader.readString(offsets[2]),
-    user: reader.readString(offsets[3]),
+    port: reader.readLong(offsets[3]),
+    user: reader.readString(offsets[4]),
   );
   object.id = id;
   return object;
@@ -107,6 +114,8 @@ P _serverDeserializeProp<P>(
     case 2:
       return (reader.readString(offset)) as P;
     case 3:
+      return (reader.readLong(offset)) as P;
+    case 4:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -331,6 +340,135 @@ extension ServerQueryFilter on QueryBuilder<Server, Server, QFilterCondition> {
     });
   }
 
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'host',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostContains(String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'host',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'host',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'host',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> hostIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'host',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<Server, Server, QAfterFilterCondition> idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
@@ -379,134 +517,6 @@ extension ServerQueryFilter on QueryBuilder<Server, Server, QFilterCondition> {
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'ip',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipContains(String value,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'ip',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipMatches(String pattern,
-      {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'ip',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ip',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterFilterCondition> ipIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'ip',
-        value: '',
       ));
     });
   }
@@ -636,6 +646,58 @@ extension ServerQueryFilter on QueryBuilder<Server, Server, QFilterCondition> {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'pass',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> portEqualTo(int value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'port',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> portGreaterThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'port',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> portLessThan(
+    int value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'port',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterFilterCondition> portBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'port',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -787,15 +849,15 @@ extension ServerQuerySortBy on QueryBuilder<Server, Server, QSortBy> {
     });
   }
 
-  QueryBuilder<Server, Server, QAfterSortBy> sortByIp() {
+  QueryBuilder<Server, Server, QAfterSortBy> sortByHost() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'ip', Sort.asc);
+      return query.addSortBy(r'host', Sort.asc);
     });
   }
 
-  QueryBuilder<Server, Server, QAfterSortBy> sortByIpDesc() {
+  QueryBuilder<Server, Server, QAfterSortBy> sortByHostDesc() {
     return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'ip', Sort.desc);
+      return query.addSortBy(r'host', Sort.desc);
     });
   }
 
@@ -808,6 +870,18 @@ extension ServerQuerySortBy on QueryBuilder<Server, Server, QSortBy> {
   QueryBuilder<Server, Server, QAfterSortBy> sortByPassDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pass', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterSortBy> sortByPort() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'port', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterSortBy> sortByPortDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'port', Sort.desc);
     });
   }
 
@@ -837,6 +911,18 @@ extension ServerQuerySortThenBy on QueryBuilder<Server, Server, QSortThenBy> {
     });
   }
 
+  QueryBuilder<Server, Server, QAfterSortBy> thenByHost() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'host', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterSortBy> thenByHostDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'host', Sort.desc);
+    });
+  }
+
   QueryBuilder<Server, Server, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -849,18 +935,6 @@ extension ServerQuerySortThenBy on QueryBuilder<Server, Server, QSortThenBy> {
     });
   }
 
-  QueryBuilder<Server, Server, QAfterSortBy> thenByIp() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'ip', Sort.asc);
-    });
-  }
-
-  QueryBuilder<Server, Server, QAfterSortBy> thenByIpDesc() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addSortBy(r'ip', Sort.desc);
-    });
-  }
-
   QueryBuilder<Server, Server, QAfterSortBy> thenByPass() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pass', Sort.asc);
@@ -870,6 +944,18 @@ extension ServerQuerySortThenBy on QueryBuilder<Server, Server, QSortThenBy> {
   QueryBuilder<Server, Server, QAfterSortBy> thenByPassDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'pass', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterSortBy> thenByPort() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'port', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Server, Server, QAfterSortBy> thenByPortDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'port', Sort.desc);
     });
   }
 
@@ -894,10 +980,10 @@ extension ServerQueryWhereDistinct on QueryBuilder<Server, Server, QDistinct> {
     });
   }
 
-  QueryBuilder<Server, Server, QDistinct> distinctByIp(
+  QueryBuilder<Server, Server, QDistinct> distinctByHost(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'ip', caseSensitive: caseSensitive);
+      return query.addDistinctBy(r'host', caseSensitive: caseSensitive);
     });
   }
 
@@ -905,6 +991,12 @@ extension ServerQueryWhereDistinct on QueryBuilder<Server, Server, QDistinct> {
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'pass', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<Server, Server, QDistinct> distinctByPort() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'port');
     });
   }
 
@@ -929,15 +1021,21 @@ extension ServerQueryProperty on QueryBuilder<Server, Server, QQueryProperty> {
     });
   }
 
-  QueryBuilder<Server, String, QQueryOperations> ipProperty() {
+  QueryBuilder<Server, String, QQueryOperations> hostProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'ip');
+      return query.addPropertyName(r'host');
     });
   }
 
   QueryBuilder<Server, String, QQueryOperations> passProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'pass');
+    });
+  }
+
+  QueryBuilder<Server, int, QQueryOperations> portProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'port');
     });
   }
 
