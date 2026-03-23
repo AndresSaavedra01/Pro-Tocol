@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'home_screen.dart'; 
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,14 +28,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       body: Container(
-        // Fondo con el degradado
+
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF1B2430), // Azul oscuro superior
-              Color(0xFF000000), // Negro inferior
+              Color(0xFF1B2430), 
+              Color(0xFF000000), 
             ],
           ),
         ),
@@ -62,7 +63,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 40),
                 
-                // Contenedor con padding para las tarjetas
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Wrap(
@@ -110,33 +110,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileCard(String name, double width) {
-    return Container(
-      width: width,
-      height: 140,
-      decoration: BoxDecoration(
-        color: const Color(0xFF8B63FF).withOpacity(0.15),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF8B63FF).withOpacity(0.5)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: Color(0xFF8B63FF),
-            child: Icon(Icons.person, color: Colors.white, size: 35),
+    return GestureDetector(
+      onTap: () {
+        // Navegamos a la pantalla de Inicio pasándole el nombre del perfil
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(profileName: name),
           ),
-          const SizedBox(height: 12),
-          Text(
-            name,
-            style: const TextStyle(
-              color: Colors.white, 
-              fontWeight: FontWeight.bold,
-              fontSize: 16
+        );
+      },
+      child: Container(
+        width: width,
+        height: 140,
+        decoration: BoxDecoration(
+          // Quitamos los 'const' que daban error con el withOpacity
+          color: Color(0xFF8B63FF).withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Color(0xFF8B63FF).withOpacity(0.5),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircleAvatar(
+              radius: 30,
+              backgroundColor: Color(0xFF8B63FF),
+              child: Icon(Icons.person, color: Colors.white, size: 35),
             ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              name,
+              style: const TextStyle(
+                color: Colors.white, 
+                fontWeight: FontWeight.bold,
+                fontSize: 16
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
