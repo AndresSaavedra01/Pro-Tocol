@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'pages/profile_screen.dart'; 
+import 'package:pro_tocol/entity//SSHService.dart';
+import 'package:pro_tocol/entity/FileNode.dart';
+import 'package:pro_tocol/entity/TempSession.dart';
 
 void main() {
   runApp(const MyApp());
