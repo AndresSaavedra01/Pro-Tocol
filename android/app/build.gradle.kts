@@ -49,3 +49,6 @@ android {
 flutter {
     source = "../.."
 }
+dependencies {
+    implementation("com.jcraft:jsch:0.1.55")
+}
