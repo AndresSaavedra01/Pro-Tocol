@@ -1,64 +1,93 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:pro_tocol/entity/DataBaseEntities.dart';
-import 'package:pro_tocol/entity/TempSession.dart';
 import 'package:pro_tocol/entity/ServerModel.dart';
-import 'package:pro_tocol/entity/SSHService.dart';
 
 class ProfileController extends ChangeNotifier {
-  final Isar isar; // Instancia de la base de datos Isar
+  final Isar isar;
 
-  // Perfil activo actualmente
+  List<Profile> allProfiles = [];
   Profile? activeProfile;
-
-  // Listas para renderizar en el Sidebar
   List<ServerModel> activeServers = [];
-  
-  // Como TempSession no tiene un SSHService propio (a diferencia de ServerModel),
-  // usamos un Map para guardar la sesión y su conexión activa.
-  Map<TempSession, SSHService> activeTempSessions = {};
 
-  ProfileController({required this.isar});
+  ProfileController({required this.isar}) {
+    // Al iniciar el controlador, cargamos todos los perfiles de la BD
+    loadAllProfiles();
+  }
 
-  /// Criterio: Manejar el perfil activo en memoria
+  // ==========================================
+  // CRUD PERFILES (Profile)
+  // ==========================================
+
+  /// [READ] Cargar todos los perfiles guardados
+  Future<void> loadAllProfiles() async {
+    allProfiles = await isar.profiles.where().findAll();
+    notifyListeners();
+  }
+
+  /// [CREATE] Crear un nuevo perfil
+  Future<void> createProfile(String name) async {
+    final newProfile = Profile()..profileName = name;
+    
+    await isar.writeTxn(() async {
+      await isar.profiles.put(newProfile);
+    });
+    
+    await loadAllProfiles();
+  }
+
+  /// Seleccionar perfil activo y cargar sus servidores
   void setActiveProfile(Profile profile) {
     activeProfile = profile;
-    // Cargamos los servidores de Isar y los envolvemos en el ServerModel
+    // Envolvemos la configuración en nuestro ServerModel lógico
     activeServers = profile.servers.map((config) => ServerModel(config: config)).toList();
     notifyListeners();
   }
 
-  /// Criterio: Al darle "Eliminar" a un Server (Borrar BD y Sidebar)
+  // ==========================================
+  // CRUD SERVIDORES (ServerConfig / ServerModel)
+  // ==========================================
+
+  /// [CREATE] Agregar un nuevo servidor al perfil activo
+  Future<void> addServer(ServerConfig newServerConfig) async {
+    if (activeProfile == null) return;
+
+    await isar.writeTxn(() async {
+      // 1. Guardamos el servidor en la BD
+      await isar.serverConfigs.put(newServerConfig);
+      // 2. Lo vinculamos al perfil actual
+      activeProfile!.servers.add(newServerConfig);
+      await activeProfile!.servers.save();
+    });
+
+    // Actualizamos la vista
+    activeServers.add(ServerModel(config: newServerConfig));
+    notifyListeners();
+  }
+
+  /// [UPDATE] Actualizar los datos de un servidor existente
+  Future<void> updateServer(ServerConfig updatedConfig) async {
+    await isar.writeTxn(() async {
+      await isar.serverConfigs.put(updatedConfig); // .put actualiza si el ID ya existe
+    });
+    
+    // Refrescamos la lista local recargando el perfil
+    if (activeProfile != null) {
+      setActiveProfile(activeProfile!);
+    }
+  }
+
+  /// [DELETE] Borrar un servidor de la BD y la lista
   Future<void> deleteServer(ServerModel server) async {
-    // 1. Cerramos la conexión SSH por seguridad si estaba activa
     if (server.ssh.isConnected) {
       server.ssh.disconnect();
     }
 
-    // 2. Lo borramos de la base de datos Isar
     await isar.writeTxn(() async {
       await isar.serverConfigs.delete(server.config.id);
     });
 
-    // 3. Lo quitamos de la memoria y actualizamos la UI (Sidebar)
     activeServers.remove(server);
-    notifyListeners();
-  }
-
-  /// Criterio: Al darle "Eliminar" a TempSession (Solo cerrar conexión y Sidebar)
-  void deleteTempSession(TempSession session) {
-    // 1. Cerramos la conexión SSH (No tocamos Isar porque viven en RAM)
-    activeTempSessions[session]?.disconnect();
-
-    // 2. Lo quitamos de la memoria y actualizamos la UI (Sidebar)
-    activeTempSessions.remove(session);
-    notifyListeners();
-  }
-
-  // --- Metodos de utilidad para agregar conexiones ---
-
-  void addTempSession(TempSession session, SSHService sshService) {
-    activeTempSessions[session] = sshService;
     notifyListeners();
   }
 }
