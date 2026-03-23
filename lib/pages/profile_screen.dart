@@ -23,12 +23,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Calculamos el ancho para que solo quepan 2 por fila con espacio
     double cardWidth = (MediaQuery.of(context).size.width / 2) - 40;
 
     return Scaffold(
       body: Container(
-        // Fondo con el degradado de tu imagen
+        // Fondo con el degradado
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
