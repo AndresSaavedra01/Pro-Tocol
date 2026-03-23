@@ -55,7 +55,7 @@ class ProfileController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Métodos de utilidad para agregar conexiones ---
+  // --- Metodos de utilidad para agregar conexiones ---
 
   void addTempSession(TempSession session, SSHService sshService) {
     activeTempSessions[session] = sshService;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pro_tocol/entity//SSHService.dart';
 import 'package:pro_tocol/entity/FileNode.dart';
-import 'package:pro_tocol/entity/TempSesion.dart';
+import 'package:pro_tocol/entity/TempSession.dart';
 
 void main() {
   runApp(const MyApp());
