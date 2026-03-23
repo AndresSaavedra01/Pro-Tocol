@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/profile_screen.dart'; 
 
 void main() {
   runApp(const MyApp());
@@ -10,33 +11,13 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Gestor de Perfiles',
       debugShowCheckedModeBanner: false,
-      title: 'Mi Primera App',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8B63FF)),
         useMaterial3: true,
       ),
-      home: const PantallaPrincipal(),
-    );
-  }
-}
-
-class PantallaPrincipal extends StatelessWidget {
-  const PantallaPrincipal({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inicio'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: const Center(
-        child: Text(
-          '¡Hola, Flutter!',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-        ),
-      ),
+      home: const ProfileScreen(),
     );
   }
 }
