@@ -89,7 +89,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // MÉTODO QUE CONSTRUYE EL MENÚ LATERAL
+  // menu lateral
   Widget _buildSidebar(BuildContext context) {
     return Drawer(
       backgroundColor: const Color(0xFF0F1319),
@@ -112,9 +112,8 @@ class HomeScreen extends StatelessWidget {
             ),
             const Divider(color: Colors.white10, height: 1),
 
-            // SECCIÓN 1: SERVIDORES
+            // sesiones servidores
             _buildSectionHeader('Servidores', Icons.dns_outlined, () {
-              // Llamamos al modal reutilizable para crear servidor
               showDialog(
                 context: context,
                 builder: (context) => ConnectionFormDialog(
@@ -132,9 +131,8 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 20),
             const Divider(color: Colors.white10, height: 1),
 
-            // SECCIÓN 2: SESIONES TEMPORALES
+            // sesiones temporales
             _buildSectionHeader('Sesiones Temporales', Icons.access_time, () {
-              // Llamamos al mismo modal reutilizable, pero con textos de sesión
               showDialog(
                 context: context,
                 builder: (context) => ConnectionFormDialog(
