@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../widgets/connection_dialog.dart';
 class HomeScreen extends StatelessWidget {
   final String profileName;
 
@@ -9,16 +9,13 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F1319),
-      
       drawer: _buildSidebar(context),
-      
-      
       appBar: AppBar(
         backgroundColor: const Color(0xFF1B2430),
         elevation: 0,
         title: const Text('Inicio', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.white), 
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.arrow_back, size: 20),
@@ -26,8 +23,6 @@ class HomeScreen extends StatelessWidget {
           )
         ],
       ),
-
-      
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -63,7 +58,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Perfil: $profileName', // Mostramos el nombre dinámico aquí
+                      'Perfil: $profileName', 
                       style: const TextStyle(color: Colors.white70, fontSize: 16),
                     ),
                     const SizedBox(height: 20),
@@ -79,8 +74,6 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
       ),
-
-      
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF0F1319),
         type: BottomNavigationBarType.fixed,
@@ -96,7 +89,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  
+  // MÉTODO QUE CONSTRUYE EL MENÚ LATERAL
   Widget _buildSidebar(BuildContext context) {
     return Drawer(
       backgroundColor: const Color(0xFF0F1319),
@@ -104,7 +97,6 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cabecera del Menú
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Row(
@@ -113,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                   const Text('Menú', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white54),
-                    onPressed: () => Navigator.pop(context), // Cierra el sidebar
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
@@ -122,17 +114,38 @@ class HomeScreen extends StatelessWidget {
 
             // SECCIÓN 1: SERVIDORES
             _buildSectionHeader('Servidores', Icons.dns_outlined, () {
-              // Lógica para agregar servidor 
+              // Llamamos al modal reutilizable para crear servidor
+              showDialog(
+                context: context,
+                builder: (context) => ConnectionFormDialog(
+                  title: 'Crear Servidor',
+                  subtitle: 'Ingresa los datos de conexión para el servidor',
+                  buttonText: 'Crear Servidor',
+                  onSubmit: () {
+                    print("Servidor guardado (Lógica pendiente)");
+                  },
+                ),
+              );
             }),
             _buildSidebarItem('Servidor Principal', true, false, 'Activo'),
-            _buildSidebarItem('Servidor Dev', false, false, 'Inactivo'),
 
             const SizedBox(height: 20),
             const Divider(color: Colors.white10, height: 1),
 
             // SECCIÓN 2: SESIONES TEMPORALES
             _buildSectionHeader('Sesiones Temporales', Icons.access_time, () {
-              // Lógica para agregar sesión 
+              // Llamamos al mismo modal reutilizable, pero con textos de sesión
+              showDialog(
+                context: context,
+                builder: (context) => ConnectionFormDialog(
+                  title: 'Nueva Sesión Temporal',
+                  subtitle: 'Ingresa los datos de conexión para la sesión temporal',
+                  buttonText: 'Crear Sesión',
+                  onSubmit: () {
+                    print("Sesión temporal iniciada (Lógica pendiente)");
+                  },
+                ),
+              );
             }),
             _buildSidebarItem('Sesión de Prueba', true, true, '2h 30m'),
           ],
@@ -140,7 +153,6 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildSectionHeader(String title, IconData icon, VoidCallback onAdd) {
     return Padding(
@@ -164,7 +176,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Ítem de la lista (Servidor o Sesión) con botón de eliminar
   Widget _buildSidebarItem(String title, bool isActive, bool isSession, String subtitle) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -181,9 +192,7 @@ class HomeScreen extends StatelessWidget {
           subtitle: isSession || !isActive ? Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)) : null,
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
-            onPressed: () {
-              // Aquí irá la lógica para eliminar/cerrar conexión
-            },
+            onPressed: () {},
           ),
         ),
       ),
