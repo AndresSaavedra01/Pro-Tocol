@@ -7,6 +7,7 @@ import 'package:pro_tocol/entity/DataBaseEntities.dart';
 import 'package:pro_tocol/presentation/controllers/ProfileController.dart';
 import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
 import 'package:pro_tocol/pages/profile_screen.dart';
+import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
 
 void main() async {
   // 1. Aseguramos que los bindings de Flutter estén listos para procesos asíncronos
@@ -24,23 +25,27 @@ void main() async {
   // 4. Instanciamos los controladores (nuestro "cerebro" global)
   final profileController = ProfileController(isar: isar);
   final navigationController = NavigationController();
+  final sshOrchestrator = SSHOrchestrator();
 
   // 5. Corremos la App pasando los controladores por constructor
   runApp(MyApp(
     profileController: profileController,
     navigationController: navigationController,
+    sshOrchestrator: sshOrchestrator,
   ));
 }
 
 class MyApp extends StatelessWidget {
   final ProfileController profileController;
   final NavigationController navigationController;
+  final SSHOrchestrator sshOrchestrator;
 
   // El constructor ya no es 'const' porque recibe objetos que se crean en tiempo de ejecución
   const MyApp({
     super.key,
     required this.profileController,
     required this.navigationController,
+    required this.sshOrchestrator
   });
 
   @override
@@ -56,6 +61,7 @@ class MyApp extends StatelessWidget {
       home: ProfileScreen(
         controller: profileController,
         navigationController: navigationController,
+        sshOrchestrator: sshOrchestrator,
       ),
     );
   }

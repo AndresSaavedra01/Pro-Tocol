@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
+import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
 import 'home_screen.dart';
 import 'package:pro_tocol/entity/DataBaseEntities.dart';
 import 'package:pro_tocol/presentation/controllers/ProfileController.dart';
@@ -8,11 +9,13 @@ class ProfileScreen extends StatefulWidget {
   final ProfileController controller;
   // 1. Almacenamos el navigationController para usarlo en el estado
   final NavigationController navigationController;
+  final SSHOrchestrator sshOrchestrator;
 
   const ProfileScreen({
     super.key,
     required this.controller,
     required this.navigationController,
+    required this.sshOrchestrator
   });
 
   @override
@@ -112,6 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               profileName: perfil.profileName,
               profileController: widget.controller, // Pasamos el controlador de perfiles
               navigationController: widget.navigationController, // Pasamos el de navegación
+              sshOrchestrator: widget.sshOrchestrator,
             ),
           ),
         );

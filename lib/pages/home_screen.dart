@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
 import '../widgets/connection_dialog.dart';
 import 'server_screen.dart';
 import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
@@ -10,12 +11,14 @@ class HomeScreen extends StatelessWidget {
   final String profileName;
   final ProfileController profileController;
   final NavigationController navigationController;
+  final SSHOrchestrator sshOrchestrator;
 
   const HomeScreen({
     super.key,
     required this.profileName,
     required this.profileController,
     required this.navigationController,
+    required this.sshOrchestrator
   });
 
   @override
@@ -79,14 +82,14 @@ class HomeScreen extends StatelessWidget {
         return ServerScreen(
           serverName: server.config.host,
           connectionInfo: '${server.config.username}@${server.config.host}',
-          isTemporarySession: false,
+          isTemporarySession: false, orchestrator: sshOrchestrator,
         );
       case ViewType.tempSessionView:
         final session = navigationController.selectedTempSession!;
         return ServerScreen(
           serverName: 'Sesión Temporal',
           connectionInfo: '${session.username}@${session.host}',
-          isTemporarySession: true,
+          isTemporarySession: true, orchestrator: sshOrchestrator,
         );
       case ViewType.home:
       default:
@@ -280,31 +283,50 @@ class HomeScreen extends StatelessWidget {
       context: context,
       builder: (context) => ConnectionFormDialog(
         title: 'Crear Servidor',
-        subtitle: 'Se guardará permanentemente en tu perfil',
-        buttonText: 'Crear Servidor',
+        subtitle: 'Se guardará en Isar y se conectará ahora',
+        buttonText: 'Guardar y Conectar',
         onSubmit: (host, user, pass, port) async {
-          final newConfig = ServerConfig()
+          // 1. Creamos el objeto de configuración
+          final config = ServerConfig()
             ..host = host
             ..username = user
             ..password = pass
             ..port = port;
 
-          await profileController.addServer(newConfig);
-          if (context.mounted) Navigator.pop(context);
+          // 2. ¡PASO CRUCIAL! Llamamos al orquestador para conectar REALMENTE
+          // Mostramos un indicador de carga o simplemente esperamos
+          String? error = await sshOrchestrator.connect(config);
+
+          if (error == null) {
+            // ÉXITO: Guardamos en la base de datos y navegamos
+            await profileController.addServer(config);
+
+            if (context.mounted) {
+              Navigator.pop(context); // Cierra el diálogo
+              // Seleccionamos el servidor para que la UI cambie a ServerScreen
+              navigationController.selectServer(profileController.activeServers.last);
+            }
+          } else {
+            // ERROR: Mostramos el error al usuario (puedes usar un SnackBar)
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+              );
+            }
+          }
         },
       ),
     );
   }
-
 
   void _showTempSessionDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => ConnectionFormDialog(
         title: 'Nueva Sesión Temporal',
-        subtitle: 'Solo durará mientras la app esté abierta',
-        buttonText: 'Conectar',
-        onSubmit: (host, user, pass, port) {
+        subtitle: 'Los datos no se guardarán al cerrar la app',
+        buttonText: 'Conectar Ahora',
+        onSubmit: (host, user, pass, port) async {
           final newSession = TempSession(
             host: host,
             username: user,
@@ -312,9 +334,22 @@ class HomeScreen extends StatelessWidget {
             port: port,
           );
 
-          profileController.addTempSession(newSession);
-          if (context.mounted) Navigator.pop(context);
-          navigationController.selectTempSession(newSession);
+          // Intentamos la conexión real antes de añadirlo a la RAM
+          String? error = await sshOrchestrator.connect(newSession);
+
+          if (error == null) {
+            profileController.addTempSession(newSession);
+            if (context.mounted) {
+              Navigator.pop(context);
+              navigationController.selectTempSession(newSession);
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
+              );
+            }
+          }
         },
       ),
     );
