@@ -38,6 +38,10 @@ class _ServerScreenState extends State<ServerScreen> {
   List<FlSpot> ramPoints = [const FlSpot(0, 0)];
   List<FileNode> currentFiles = [];
   bool _isLoadingFiles = false;
+  List<FlSpot> diskPoints = [const FlSpot(0, 0)];
+  String _rawDiskInfo = "0%";
+  int _totalRamMb = 0;
+  int _usedRamMb = 0;
 
   @override
   void initState() {
@@ -85,7 +89,6 @@ class _ServerScreenState extends State<ServerScreen> {
 
   // --- LÓGICA DE MÉTRICAS REALES ---
   void _listenToSystemStats() {
-    // Consultamos cada 3 segundos para no saturar el SSH
     _metricsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       try {
         if (_currentService != null && _currentService!.isConnected) {
@@ -94,22 +97,32 @@ class _ServerScreenState extends State<ServerScreen> {
           if (mounted) {
             setState(() {
               double x = cpuPoints.length.toDouble();
+
+              // CPU
               cpuPoints.add(FlSpot(x, metrics.cpuUsage));
 
-              // Calculamos % de RAM: (usada / total) * 100
-              double ramPercent = (metrics.usedRam / metrics.totalRam) * 100;
+              // RAM (Guardamos valores reales para las etiquetas)
+              _totalRamMb = metrics.totalRam;
+              _usedRamMb = metrics.usedRam;
+              double ramPercent = (_usedRamMb / _totalRamMb) * 100;
               ramPoints.add(FlSpot(x, ramPercent));
 
-              // Mantener solo los últimos 15 puntos para que el gráfico no sea pesado
+              // DISCO: Limpiamos el "%" del string (ej: "45%" -> 45.0)
+              _rawDiskInfo = metrics.diskUsage;
+              double diskVal = double.tryParse(_rawDiskInfo.replaceAll('%', '')) ?? 0;
+              diskPoints.add(FlSpot(x, diskVal));
+
+              // Limpieza de historial (mantener 15 puntos)
               if (cpuPoints.length > 15) {
                 cpuPoints.removeAt(0);
                 ramPoints.removeAt(0);
+                diskPoints.removeAt(0);
               }
             });
           }
         }
       } catch (e) {
-        debugPrint("Error obteniendo métricas: $e");
+        debugPrint("Error en métricas: $e");
       }
     });
   }
@@ -181,41 +194,71 @@ class _ServerScreenState extends State<ServerScreen> {
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-          _buildGraphContainer("Uso de CPU (%)", Colors.blue, cpuPoints),
-          const SizedBox(height: 20),
-          _buildGraphContainer("Uso de RAM (%)", Colors.purple, ramPoints),
-          const SizedBox(height: 20),
-          const Text(
-            "Métricas obtenidas vía 'top' y 'free' cada 3s",
-            style: TextStyle(color: Colors.white24, fontSize: 10),
-          )
+          // GRÁFICO CPU + ESTADÍSTICA
+          _buildGraphContainer("Uso de CPU", Colors.blue, cpuPoints),
+          _buildDetailLabel("Carga actual: ${cpuPoints.last.y.toStringAsFixed(1)}%"),
+
+          const SizedBox(height: 25),
+
+          // GRÁFICO RAM + ESTADÍSTICA (MB Reales)
+          _buildGraphContainer("Uso de RAM", Colors.purple, ramPoints),
+          _buildDetailLabel("Memoria: $_usedRamMb MB / $_totalRamMb MB"),
+
+          const SizedBox(height: 25),
+
+          // NUEVO: GRÁFICO DE DISCO (Almacenamiento)
+          _buildGraphContainer("Almacenamiento (Raíz /)", Colors.orange, diskPoints),
+          _buildDetailLabel("Ocupado: $_rawDiskInfo del total"),
+
+          const SizedBox(height: 30),
         ],
       ),
     );
   }
 
+// Widget auxiliar para las etiquetas de texto debajo de los gráficos
+  Widget _buildDetailLabel(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 8, left: 8),
+      child: Text(
+        text,
+        style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+      ),
+    );
+  }
+
+
   Widget _buildArchivosTab() {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           color: const Color(0xFF1B2430),
           child: Row(
             children: [
-              const Icon(Icons.folder_open, color: Color(0xFF8B63FF)),
+              // BOTÓN DE RETROCEDER (CD ..)
+              if (currentPath != "/")
+                IconButton(
+                  icon: const Icon(Icons.arrow_upward, color: Color(0xFF8B63FF), size: 20),
+                  onPressed: _goBack,
+                  tooltip: "Subir un nivel",
+                ),
+              const Icon(Icons.folder_open, color: Colors.white54, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   currentPath,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (_isLoadingFiles)
-                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
             ],
           ),
         ),
+        const Divider(height: 1, color: Colors.white10),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshFiles,
@@ -309,5 +352,27 @@ class _ServerScreenState extends State<ServerScreen> {
     const suffixes = ["B", "KB", "MB", "GB"];
     var i = (log(bytes) / log(1024)).floor();
     return '${(bytes / pow(1024, i)).toStringAsFixed(1)} ${suffixes[i]}';
+  }
+
+  void _goBack() {
+    if (currentPath == "/" || currentPath == "") return;
+
+    // Dividimos la ruta por "/"
+    List<String> parts = currentPath.split('/');
+
+    // Eliminamos el último segmento (si termina en / las partes vacías se manejan)
+    if (parts.last.isEmpty) parts.removeLast();
+    if (parts.isNotEmpty) parts.removeLast();
+
+    // Reconstruimos la ruta
+    String newPath = parts.join('/');
+
+    // Si queda vacío, es la raíz
+    if (newPath.isEmpty) newPath = "/";
+
+    setState(() {
+      currentPath = newPath;
+    });
+    _refreshFiles();
   }
 }

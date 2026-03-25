@@ -72,13 +72,18 @@ class SSHService {
   }
 
   // 3. Para SHELL: Terminal interactiva
-  Future<SSHSession> createTerminal() async {
+// En tu clase SSHService...
+
+  Future<SSHSession> createTerminal({int width = 80, int height = 24}) async {
     if (_client == null) throw Exception('Cliente no inicializado');
     return await _client!.shell(
-      pty: SSHPtyConfig(width: 100, height: 30),
+      pty: SSHPtyConfig(
+        type: 'xterm',
+        width: width,
+        height: height,
+      ),
     );
   }
-
   void disconnect() {
     _cleanup();
   }
