@@ -3,6 +3,8 @@ import 'package:isar/isar.dart';
 import 'package:pro_tocol/entity/DataBaseEntities.dart';
 import 'package:pro_tocol/entity/ServerModel.dart';
 
+import '../../entity/TempSession.dart';
+
 class ProfileController extends ChangeNotifier {
   final Isar isar;
 
@@ -13,6 +15,19 @@ class ProfileController extends ChangeNotifier {
   ProfileController({required this.isar}) {
     // Al iniciar el controlador, cargamos todos los perfiles de la BD
     loadAllProfiles();
+  }
+
+  List<TempSession> activeTempSessions = [];
+
+  // --- MÉTODOS PARA SESIONES TEMPORALES ---
+  void addTempSession(TempSession session) {
+    activeTempSessions.add(session);
+    notifyListeners();
+  }
+
+  void removeTempSession(TempSession session) {
+    activeTempSessions.remove(session);
+    notifyListeners();
   }
 
   // ==========================================

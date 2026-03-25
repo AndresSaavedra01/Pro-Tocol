@@ -4,7 +4,8 @@ class ConnectionFormDialog extends StatefulWidget {
   final String title;
   final String subtitle;
   final String buttonText;
-  final VoidCallback onSubmit;
+  // Modificado para recibir los datos del formulario
+  final void Function(String host, String username, String password, int port) onSubmit;
 
   const ConnectionFormDialog({
     super.key,
@@ -21,6 +22,22 @@ class ConnectionFormDialog extends StatefulWidget {
 class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
   bool isPasswordSelected = true;
   bool isPasswordVisible = false;
+
+  // Controladores para capturar el texto
+  final TextEditingController _ipController = TextEditingController();
+  final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController(); // Alias/Nombre
+
+  @override
+  void dispose() {
+    // Limpieza de controladores
+    _ipController.dispose();
+    _userController.dispose();
+    _passController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,17 +84,17 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
               ),
               const SizedBox(height: 24),
 
-              // Campos
-              _buildLabel('Nombre'),
-              _buildTextField('Ej: Servidor Principal'),
+              // Campos con sus respectivos controladores
+              _buildLabel('Nombre (Alias)'),
+              _buildTextField('Ej: Servidor Principal', controller: _nameController),
               const SizedBox(height: 16),
 
               _buildLabel('Dirección IP'),
-              _buildTextField('Ej: 192.168.1.100'),
+              _buildTextField('Ej: 192.168.1.100', controller: _ipController),
               const SizedBox(height: 16),
 
               _buildLabel('Usuario'),
-              _buildTextField('Ej: root, admin'),
+              _buildTextField('Ej: root, admin', controller: _userController),
               const SizedBox(height: 16),
 
               // Toggle Contraseña / SSH Key
@@ -137,6 +154,7 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
               _buildLabel(isPasswordSelected ? 'Contraseña' : 'Clave SSH / Ruta del archivo'),
               _buildTextField(
                 isPasswordSelected ? 'Ingresa la contraseña' : 'Pega tu clave o selecciona archivo',
+                controller: _passController,
                 isPassword: isPasswordSelected,
               ),
               const SizedBox(height: 24),
@@ -167,8 +185,15 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                       child: TextButton(
                         style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                         onPressed: () {
-                          widget.onSubmit();
-                          Navigator.pop(context); // Cierra el modal tras enviar
+                          // Llamamos al onSubmit pasando los valores reales
+                          widget.onSubmit(
+                            _ipController.text,
+                            _userController.text,
+                            _passController.text,
+                            22, // Puerto por defecto, podrías añadir un campo si quieres
+                          );
+                          // El Navigator.pop suele manejarse dentro de la lógica del onSubmit en el padre,
+                          // pero lo mantenemos si prefieres que se cierre de inmediato.
                         },
                         child: Text(widget.buttonText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
@@ -190,8 +215,10 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
     );
   }
 
-  Widget _buildTextField(String hint, {bool isPassword = false}) {
+  // Método modificado para aceptar un controlador
+  Widget _buildTextField(String hint, {required TextEditingController controller, bool isPassword = false}) {
     return TextField(
+      controller: controller,
       obscureText: isPassword && !isPasswordVisible,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
@@ -214,9 +241,9 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
         ),
         suffixIcon: isPassword
             ? IconButton(
-                icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white38, size: 20),
-                onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
-              )
+          icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white38, size: 20),
+          onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+        )
             : null,
       ),
     );

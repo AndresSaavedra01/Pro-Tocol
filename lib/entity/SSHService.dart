@@ -1,8 +1,7 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:dartssh2/dartssh2.dart';
-import 'package:pro_tocol/entity/GeneralConfig.dart'; // Tu interfaz/clase base
+import 'package:pro_tocol/entity/GeneralConfig.dart';
 
 import 'SFTPService.dart';
 import 'ServerMetrics.dart';
@@ -11,12 +10,18 @@ class SSHService {
   SSHClient? _client;
   SFTPService? _sftpService;
 
+  // --- CAMBIO CLAVE: Variable para persistir la configuración ---
+  GeneralConfig? config;
+
   bool get isConnected => _client != null;
 
   SFTPService? get sftp => _sftpService;
 
   Future<bool> connect(GeneralConfig details) async {
     try {
+      // Guardamos los detalles de configuración inmediatamente
+      this.config = details;
+
       final socket = await SSHSocket.connect(details.host, details.port);
 
       List<SSHKeyPair> identities = [];
@@ -34,8 +39,8 @@ class SSHService {
       _client = SSHClient(
         socket,
         username: details.username,
-        onPasswordRequest: passwordHandler, // Será null si usamos Key
-        identities: identities,             // Será lista vacía si usamos Pass
+        onPasswordRequest: passwordHandler,
+        identities: identities,
       );
 
       // Inicializar el servicio SFTP interno
@@ -67,13 +72,18 @@ class SSHService {
   }
 
   // 3. Para SHELL: Terminal interactiva
-  Future<SSHSession> createTerminal() async {
+// En tu clase SSHService...
+
+  Future<SSHSession> createTerminal({int width = 80, int height = 24}) async {
     if (_client == null) throw Exception('Cliente no inicializado');
     return await _client!.shell(
-      pty: SSHPtyConfig(width: 100, height: 30),
+      pty: SSHPtyConfig(
+        type: 'xterm',
+        width: width,
+        height: height,
+      ),
     );
   }
-
   void disconnect() {
     _cleanup();
   }
@@ -81,6 +91,8 @@ class SSHService {
   void _cleanup() {
     _client?.close();
     _client = null;
-    _sftpService = null; // Limpiamos la referencia del servicio hijo
+    _sftpService = null;
+    // --- IMPORTANTE: Limpiar la configuración al desconectar ---
+    config = null;
   }
 }
