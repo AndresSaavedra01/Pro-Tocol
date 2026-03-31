@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
 import '../widgets/connection_dialog.dart';
 import 'server_screen.dart';
-import 'error_connection.dart'; // NUEVO: Importamos la pantalla de error
+import 'error_connection.dart'; 
 import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
 import 'package:pro_tocol/presentation/controllers/ProfileController.dart';
 import 'package:pro_tocol/entity/DataBaseEntities.dart';
@@ -158,6 +158,33 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  // --- MÉTODO PARA CONFIRMAR ELIMINACIÓN ---
+  void _confirmDelete(BuildContext context, String itemName, VoidCallback onConfirm) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF151821),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Colors.white10)),
+        title: const Text('¿Eliminar conexión?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('¿Estás seguro de que deseas eliminar "$itemName"? Esta acción no se puede deshacer.', style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              Navigator.pop(context); // Cierra el diálogo
+              onConfirm(); // Ejecuta la eliminación
+            },
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // --- SIDEBAR CONECTADO AL PROFILE CONTROLLER ---
 
   Widget _buildSidebar(BuildContext context) {
@@ -184,7 +211,18 @@ class HomeScreen extends StatelessWidget {
                     navigationController.selectServer(server);
                     Navigator.pop(context);
                   },
-                  onDelete: () => profileController.deleteServer(server),
+                  onEdit: () {
+                    Navigator.pop(context);
+                    _showEditServerDialog(context, server); 
+                  },
+                  onDelete: () {
+                    _confirmDelete(context, server.config.host, () {
+                      profileController.deleteServer(server);
+                      if (navigationController.selectedServer == server) {
+                        navigationController.goHome();
+                      }
+                    });
+                  },
                 )),
 
                 const SizedBox(height: 20),
@@ -201,11 +239,17 @@ class HomeScreen extends StatelessWidget {
                     navigationController.selectTempSession(session);
                     Navigator.pop(context);
                   },
+                  onEdit: () {
+                    Navigator.pop(context);
+                    _showEditTempSessionDialog(context, session); 
+                  },
                   onDelete: () {
-                    profileController.removeTempSession(session);
-                    if (navigationController.selectedTempSession == session) {
-                      navigationController.goHome();
-                    }
+                    _confirmDelete(context, session.host, () {
+                      profileController.removeTempSession(session);
+                      if (navigationController.selectedTempSession == session) {
+                        navigationController.goHome();
+                      }
+                    });
                   },
                 )),
               ],
@@ -260,6 +304,7 @@ class HomeScreen extends StatelessWidget {
     required bool isSession,
     required String subtitle,
     required VoidCallback onTap,
+    required VoidCallback onEdit,
     required VoidCallback onDelete,
   }) {
     return Padding(
@@ -276,16 +321,25 @@ class HomeScreen extends StatelessWidget {
               : CircleAvatar(radius: 4, backgroundColor: isActive ? Colors.greenAccent : Colors.white24),
           title: Text(title, style: TextStyle(color: isActive ? const Color(0xFF8B63FF) : Colors.white, fontSize: 14)),
           subtitle: isSession || !isActive ? Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)) : null,
-          trailing: IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.white38, size: 20),
-            onPressed: onDelete,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined, color: Colors.white54, size: 20),
+                onPressed: onEdit,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                onPressed: onDelete,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  // --- DIÁLOGOS DE CREACIÓN ACTUALIZADOS CON LA PANTALLA DE ERROR ---
+  // --- DIÁLOGOS DE CREACIÓN Y EDICIÓN ---
 
   void _showServerDialog(BuildContext context) {
     showDialog(
@@ -301,25 +355,23 @@ class HomeScreen extends StatelessWidget {
             ..password = pass
             ..port = port;
 
-          // Función interna para poder reintentar
           Future<void> intentarConexion() async {
             String? error = await sshOrchestrator.connect(config);
 
             if (error == null) {
               await profileController.addServer(config);
               if (context.mounted) {
-                Navigator.pop(context); // Cierra el formulario
+                Navigator.pop(context); 
                 navigationController.selectServer(profileController.activeServers.last);
               }
             } else {
-              // CAMBIO AQUÍ: Llamamos a la pantalla visual en lugar del SnackBar
               if (context.mounted) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => ErrorConnectionScreen(
                       errorMessage: error,
-                      onRetry: intentarConexion, // Recursivo: Vuelve a intentar con los mismos datos
+                      onRetry: intentarConexion, 
                     ),
                   ),
                 );
@@ -328,6 +380,34 @@ class HomeScreen extends StatelessWidget {
           }
 
           await intentarConexion();
+        },
+      ),
+    );
+  }
+
+  // DIÁLOGO PARA EDITAR SERVIDOR CONECTADO A ISAR
+  void _showEditServerDialog(BuildContext context, dynamic server) {
+    showDialog(
+      context: context,
+      builder: (context) => ConnectionFormDialog(
+        title: 'Editar Servidor',
+        subtitle: 'Actualiza los datos de conexión',
+        buttonText: 'Guardar Cambios',
+        initialHost: server.config.host,
+        initialUser: server.config.username,
+        initialPass: server.config.password,
+        onSubmit: (host, user, pass, port) async {
+          // 1. Actualizamos los datos en memoria del objeto Isar
+          server.config.host = host;
+          server.config.username = user;
+          server.config.password = pass;
+          server.config.port = port;
+
+          // 2. Guardamos en la base de datos Isar de forma permanente
+          await profileController.updateServer(server.config); 
+          
+          // 3. Cerramos el formulario si todo salió bien
+          if (context.mounted) Navigator.pop(context);
         },
       ),
     );
@@ -348,25 +428,23 @@ class HomeScreen extends StatelessWidget {
             port: port,
           );
 
-          // Función interna para poder reintentar
           Future<void> intentarConexionTemporal() async {
             String? error = await sshOrchestrator.connect(newSession);
 
             if (error == null) {
               profileController.addTempSession(newSession);
               if (context.mounted) {
-                Navigator.pop(context); // Cierra el formulario
+                Navigator.pop(context); 
                 navigationController.selectTempSession(newSession);
               }
             } else {
-              // CAMBIO AQUÍ: Llamamos a la pantalla visual de error
               if (context.mounted) {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => ErrorConnectionScreen(
                       errorMessage: error,
-                      onRetry: intentarConexionTemporal, // Recursivo: Vuelve a intentar
+                      onRetry: intentarConexionTemporal, 
                     ),
                   ),
                 );
@@ -375,6 +453,43 @@ class HomeScreen extends StatelessWidget {
           }
 
           await intentarConexionTemporal();
+        },
+      ),
+    );
+  }
+
+// DIÁLOGO PARA EDITAR SESIÓN TEMPORAL (Solo en RAM)
+  void _showEditTempSessionDialog(BuildContext context, TempSession session) {
+    showDialog(
+      context: context,
+      builder: (context) => ConnectionFormDialog(
+        title: 'Editar Sesión Temporal',
+        subtitle: 'Actualiza los datos para esta sesión',
+        buttonText: 'Actualizar',
+        initialHost: session.host,
+        initialUser: session.username,
+        initialPass: session.password,
+        onSubmit: (host, user, pass, port) {
+          
+          // 1. Creamos una nueva sesión con los datos fresquitos
+          final updatedSession = TempSession(
+            host: host,
+            username: user,
+            password: pass,
+            port: port,
+          );
+          
+          // 2. Borramos la vieja y metemos la nueva en el controlador
+          profileController.removeTempSession(session);
+          profileController.addTempSession(updatedSession);
+          
+          // 3. Si estábamos visualizando esa sesión, actualizamos el panel
+          if (navigationController.selectedTempSession == session) {
+            navigationController.selectTempSession(updatedSession);
+          }
+
+          // 4. Cerramos el formulario
+          if (context.mounted) Navigator.pop(context);
         },
       ),
     );

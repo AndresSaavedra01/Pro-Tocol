@@ -244,23 +244,33 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
   
+  // === CAMBIO VISUAL 1: Mejoramos un poco la barra de navegación ===
   Widget _buildArchivosTab() {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: const Color(0xFF1B2430),
           child: Row(
             children: [
               // BOTÓN DE RETROCEDER (CD ..)
               if (currentPath != "/")
-                IconButton(
-                  icon: const Icon(Icons.arrow_upward, color: Color(0xFF8B63FF), size: 20),
-                  onPressed: _goBack,
-                  tooltip: "Subir un nivel",
+                Container(
+                  margin: const EdgeInsets.only(right: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B63FF).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_upward, color: Color(0xFF8B63FF), size: 20),
+                    onPressed: _goBack,
+                    tooltip: "Subir un nivel",
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
               const Icon(Icons.folder_open, color: Colors.white54, size: 20),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   currentPath,
@@ -269,7 +279,7 @@ class _ServerScreenState extends State<ServerScreen> {
                 ),
               ),
               if (_isLoadingFiles)
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B63FF))),
             ],
           ),
         ),
@@ -287,15 +297,34 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
+  // === CAMBIO VISUAL 2: Lógica de iconos y colores según tu FileType ===
   Widget _buildFileNodeItem(FileNode node) {
+    final isDir = node.isDirectory;
+    
+    // Asignación de iconos y colores según FileType
+    IconData nodeIcon = Icons.insert_drive_file;
+    Color iconColor = Colors.white54;
+    
+    if (isDir) {
+      nodeIcon = Icons.folder;
+      iconColor = const Color(0xFF8B63FF);
+    } else if (node.type == FileType.txt || node.type == FileType.markdown) {
+      nodeIcon = Icons.description;
+      iconColor = Colors.blueAccent;
+    } else if (node.type == FileType.image) {
+      nodeIcon = Icons.image;
+      iconColor = Colors.purpleAccent;
+    } else if (node.type == FileType.config) {
+      nodeIcon = Icons.settings;
+      iconColor = Colors.orangeAccent;
+    }
+
     return ListTile(
-      leading: Icon(
-        node.isDirectory ? Icons.folder : Icons.insert_drive_file,
-        color: node.isDirectory ? const Color(0xFF8B63FF) : Colors.white54,
-      ),
+      leading: Icon(nodeIcon, color: iconColor),
       title: Text(node.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
       subtitle: Text("${node.permissions} • ${_formatSize(node.sizeInBytes)}",
           style: const TextStyle(color: Colors.white24, fontSize: 11)),
+      trailing: isDir ? const Icon(Icons.chevron_right, color: Colors.white24, size: 20) : null,
       onTap: () {
         if (node.isDirectory) {
           // Evitar bucles de navegación si el nombre es "." o ".."
@@ -305,12 +334,15 @@ class _ServerScreenState extends State<ServerScreen> {
             currentPath = node.path;
           });
           _refreshFiles();
+        } else {
+          // A futuro: Aquí puedes poner lógica para descargar o abrir archivos
+          debugPrint("Tocaste el archivo: ${node.name}");
         }
       },
     );
   }
 
-Widget _buildTerminalTab() {
+  Widget _buildTerminalTab() {
     return Container(
       color: Colors.black, // Fondo oscuro profundo
       padding: const EdgeInsets.all(12.0), // Padding para que no se pegue a los bordes

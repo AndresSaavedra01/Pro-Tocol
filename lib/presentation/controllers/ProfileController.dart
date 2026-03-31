@@ -51,6 +51,36 @@ class ProfileController extends ChangeNotifier {
     await loadAllProfiles();
   }
 
+  // --- NUEVO: [UPDATE] Actualizar el nombre de un perfil existente ---
+  Future<void> updateProfileName(Profile profile, String newName) async {
+    await isar.writeTxn(() async {
+      profile.profileName = newName;
+      await isar.profiles.put(profile); // Sobrescribe con el nuevo nombre
+    });
+    await loadAllProfiles(); // Refresca la lista visual
+  }
+
+  // --- NUEVO: [DELETE] Borrar un perfil y sus servidores vinculados ---
+  Future<void> deleteProfile(Profile profile) async {
+    await isar.writeTxn(() async {
+      // Primero limpiamos los servidores que le pertenecen para no dejar datos huérfanos
+      for (var server in profile.servers) {
+        await isar.serverConfigs.delete(server.id);
+      }
+      // Luego borramos el perfil
+      await isar.profiles.delete(profile.id);
+    });
+
+    // Si el usuario borra el perfil en el que está logueado actualmente, lo desconectamos
+    if (activeProfile?.id == profile.id) {
+      activeProfile = null;
+      activeServers.clear();
+      activeTempSessions.clear(); // Limpiamos la RAM también
+    }
+    
+    await loadAllProfiles();
+  }
+
   /// Seleccionar perfil activo y cargar sus servidores
   void setActiveProfile(Profile profile) {
     activeProfile = profile;

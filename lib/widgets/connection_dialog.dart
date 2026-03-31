@@ -4,6 +4,13 @@ class ConnectionFormDialog extends StatefulWidget {
   final String title;
   final String subtitle;
   final String buttonText;
+  
+  // VARIABLES OPCIONALES PARA MODO EDICIÓN
+  final String? initialHost;
+  final String? initialUser;
+  final String? initialPass;
+  final String? initialName;
+
   final void Function(String host, String username, String password, int port) onSubmit;
 
   const ConnectionFormDialog({
@@ -12,6 +19,10 @@ class ConnectionFormDialog extends StatefulWidget {
     required this.subtitle,
     required this.buttonText,
     required this.onSubmit,
+    this.initialHost,
+    this.initialUser,
+    this.initialPass,
+    this.initialName,
   });
 
   @override
@@ -19,16 +30,25 @@ class ConnectionFormDialog extends StatefulWidget {
 }
 
 class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
-  // LLAVE PARA EL FORMULARIO (Necesaria para las validaciones)
   final _formKey = GlobalKey<FormState>();
 
   bool isPasswordSelected = true;
   bool isPasswordVisible = false;
 
-  final TextEditingController _ipController = TextEditingController();
-  final TextEditingController _userController = TextEditingController();
-  final TextEditingController _passController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController(); 
+  late TextEditingController _ipController;
+  late TextEditingController _userController;
+  late TextEditingController _passController;
+  late TextEditingController _nameController; 
+
+  @override
+  void initState() {
+    super.initState();
+    // PRECARGAMOS LOS DATOS EN LOS CAMPOS DE TEXTO
+    _ipController = TextEditingController(text: widget.initialHost ?? '');
+    _userController = TextEditingController(text: widget.initialUser ?? '');
+    _passController = TextEditingController(text: widget.initialPass ?? '');
+    _nameController = TextEditingController(text: widget.initialName ?? '');
+  }
 
   @override
   void dispose() {
@@ -39,14 +59,12 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
     super.dispose();
   }
 
-  // FUNCIÓN PARA VALIDAR IP O DOMINIO
   String? _validateIpOrDomain(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'La IP o Dominio es obligatoria';
     }
     final ipRegExp = RegExp(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$');
     final domainRegExp = RegExp(r'^([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}$');
-    
     
     if (!ipRegExp.hasMatch(value.trim()) && !domainRegExp.hasMatch(value.trim())) {
       return 'Formato de IP o Dominio invalido';
@@ -80,7 +98,6 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Cabecera
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -112,7 +129,7 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                 _buildTextField(
                   'Ej: Servidor Principal', 
                   controller: _nameController,
-                  validator: (val) => _validateRequired(val, 'El nombre/alias'), // Alias obligatorio
+                  validator: (val) => _validateRequired(val, 'El nombre/alias'),
                 ),
                 const SizedBox(height: 16),
 
@@ -120,7 +137,7 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                 _buildTextField(
                   'Ej: 192.168.1.100', 
                   controller: _ipController,
-                  validator: _validateIpOrDomain, // Usa la función de validación de IP/Dominio
+                  validator: _validateIpOrDomain,
                 ),
                 const SizedBox(height: 16),
 
@@ -128,7 +145,7 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                 _buildTextField(
                   'Ej: root, admin', 
                   controller: _userController,
-                  validator: (val) => _validateRequired(val, 'El usuario'), // Usuario obligatorio
+                  validator: (val) => _validateRequired(val, 'El usuario'),
                 ),
                 const SizedBox(height: 16),
 
@@ -190,11 +207,10 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                   isPasswordSelected ? 'Ingresa la contraseña' : 'Pega tu clave o selecciona archivo',
                   controller: _passController,
                   isPassword: isPasswordSelected,
-                  validator: (val) => _validateRequired(val, isPasswordSelected ? 'La contraseña' : 'La clave SSH'), // Credenciales obligatorias
+                  validator: (val) => _validateRequired(val, isPasswordSelected ? 'La contraseña' : 'La clave SSH'),
                 ),
                 const SizedBox(height: 24),
 
-                // BOTONES DE ACCIÓN
                 Row(
                   children: [
                     Expanded(
@@ -220,7 +236,6 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
                         child: TextButton(
                           style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                           onPressed: () {
-                            // VALIDAR ANTES DE ENVIAR
                             if (_formKey.currentState!.validate()) {
                               widget.onSubmit(
                                 _ipController.text.trim(),
@@ -251,7 +266,6 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
     );
   }
 
-  // MÉTODO _buildTextField ACTUALIZADO CON TextFormField
   Widget _buildTextField(String hint, {required TextEditingController controller, bool isPassword = false, String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
@@ -265,7 +279,6 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
         filled: true,
         fillColor: const Color(0xFF1E2230),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        // Estilos para los bordes y el texto de error en rojo
         errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
