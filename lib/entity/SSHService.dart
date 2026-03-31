@@ -22,7 +22,12 @@ class SSHService {
       // Guardamos los detalles de configuración inmediatamente
       this.config = details;
 
-      final socket = await SSHSocket.connect(details.host, details.port);
+      // AÑADIDO: Timeout de 10 segundos para no colgar la app si la IP no responde
+      final socket = await SSHSocket.connect(
+        details.host, 
+        details.port,
+        timeout: const Duration(seconds: 10),
+      );
 
       List<SSHKeyPair> identities = [];
       String? Function()? passwordHandler;
@@ -49,7 +54,8 @@ class SSHService {
       return true;
     } catch (e) {
       _cleanup();
-      return false;
+      // CAMBIO CLAVE: Lanzamos el error hacia arriba para que el Orchestrator lo atrape
+      rethrow; 
     }
   }
 
@@ -72,8 +78,6 @@ class SSHService {
   }
 
   // 3. Para SHELL: Terminal interactiva
-// En tu clase SSHService...
-
   Future<SSHSession> createTerminal({int width = 80, int height = 24}) async {
     if (_client == null) throw Exception('Cliente no inicializado');
     return await _client!.shell(
@@ -84,6 +88,7 @@ class SSHService {
       ),
     );
   }
+
   void disconnect() {
     _cleanup();
   }
