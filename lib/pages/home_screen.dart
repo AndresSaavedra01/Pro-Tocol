@@ -33,9 +33,14 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             backgroundColor: const Color(0xFF1B2430),
             elevation: 0,
-            title: Text(
-              _getAppBarTitle(),
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            // TITULO ANIMADO: Hacemos que el título también tenga una transición suave
+            title: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _getAppBarTitle(),
+                key: ValueKey<String>(_getAppBarTitle()), // La llave indica cuándo animar
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
             ),
             iconTheme: const IconThemeData(color: Colors.white),
             actions: [
@@ -45,7 +50,7 @@ class HomeScreen extends StatelessWidget {
               )
             ],
           ),
-          // El cuerpo es dinámico: Welcome, Server View o Temp Session
+          // El cuerpo es dinámico y AHORA ANIMADO
           body: Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -55,7 +60,15 @@ class HomeScreen extends StatelessWidget {
                 colors: [Color(0xFF1B2430), Color(0xFF000000)],
               ),
             ),
-            child: _buildMainContent(),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 400),
+              switchInCurve: Curves.easeIn,
+              switchOutCurve: Curves.easeOut,
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: _buildMainContent(),
+            ),
           ),
           bottomNavigationBar: BottomNavigationBar(
             backgroundColor: const Color(0xFF0F1319),
@@ -64,8 +77,6 @@ class HomeScreen extends StatelessWidget {
             unselectedItemColor: Colors.white54,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Inicio'),
-              BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Buscar'),
-              BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Notificaciones'),
               BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Perfil'),
             ],
           ),
@@ -74,12 +85,12 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Decide qué mostrar en el centro de la pantalla
   Widget _buildMainContent() {
     switch (navigationController.currentView) {
       case ViewType.serverView:
         final server = navigationController.selectedServer!;
         return ServerScreen(
+          key: const ValueKey('server_view'), 
           serverName: server.config.host,
           connectionInfo: '${server.config.username}@${server.config.host}',
           isTemporarySession: false, orchestrator: sshOrchestrator,
@@ -87,6 +98,7 @@ class HomeScreen extends StatelessWidget {
       case ViewType.tempSessionView:
         final session = navigationController.selectedTempSession!;
         return ServerScreen(
+          key: const ValueKey('temp_session_view'), // KEY PARA ANIMACIÓN
           serverName: 'Sesión Temporal',
           connectionInfo: '${session.username}@${session.host}',
           isTemporarySession: true, orchestrator: sshOrchestrator,
@@ -105,6 +117,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildWelcomeView() {
     return Padding(
+      key: const ValueKey('welcome_view'), 
       padding: const EdgeInsets.all(20.0),
       child: Column(
         children: [
@@ -286,28 +299,22 @@ class HomeScreen extends StatelessWidget {
         subtitle: 'Se guardará en Isar y se conectará ahora',
         buttonText: 'Guardar y Conectar',
         onSubmit: (host, user, pass, port) async {
-          // 1. Creamos el objeto de configuración
           final config = ServerConfig()
             ..host = host
             ..username = user
             ..password = pass
             ..port = port;
 
-          // 2. ¡PASO CRUCIAL! Llamamos al orquestador para conectar REALMENTE
-          // Mostramos un indicador de carga o simplemente esperamos
           String? error = await sshOrchestrator.connect(config);
 
           if (error == null) {
-            // ÉXITO: Guardamos en la base de datos y navegamos
             await profileController.addServer(config);
 
             if (context.mounted) {
-              Navigator.pop(context); // Cierra el diálogo
-              // Seleccionamos el servidor para que la UI cambie a ServerScreen
+              Navigator.pop(context);
               navigationController.selectServer(profileController.activeServers.last);
             }
           } else {
-            // ERROR: Mostramos el error al usuario (puedes usar un SnackBar)
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
@@ -334,7 +341,6 @@ class HomeScreen extends StatelessWidget {
             port: port,
           );
 
-          // Intentamos la conexión real antes de añadirlo a la RAM
           String? error = await sshOrchestrator.connect(newSession);
 
           if (error == null) {

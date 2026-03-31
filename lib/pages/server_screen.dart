@@ -150,6 +150,22 @@ class _ServerScreenState extends State<ServerScreen> {
     }
   }
 
+  // --- MÉTODO PARA NAVEGACIÓN CON TRANSICIÓN SUAVE (FADE) ---
+  void navigateToScreen(Widget screen) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => screen,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -216,7 +232,7 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-// Widget auxiliar para las etiquetas de texto debajo de los gráficos
+  // Widget auxiliar para las etiquetas de texto debajo de los gráficos
   Widget _buildDetailLabel(String text) {
     return Container(
       width: double.infinity,
@@ -227,8 +243,7 @@ class _ServerScreenState extends State<ServerScreen> {
       ),
     );
   }
-
-
+  
   Widget _buildArchivosTab() {
     return Column(
       children: [
@@ -295,14 +310,51 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-  Widget _buildTerminalTab() {
+Widget _buildTerminalTab() {
     return Container(
-      color: Colors.black,
-      child: TerminalView(
-        terminal,
-        autofocus: true,
-        backgroundOpacity: 1,
-        textStyle: const TerminalStyle(fontSize: 12),
+      color: Colors.black, // Fondo oscuro profundo
+      padding: const EdgeInsets.all(12.0), // Padding para que no se pegue a los bordes
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white10),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: TerminalView(
+            terminal,
+            autofocus: true, // Esto ayuda al foco automático
+            backgroundOpacity: 1,
+            // AQUÍ INYECTAMOS EL TEMA PARA CORREGIR EL CURSOR
+            theme: TerminalTheme(
+              cursor: Colors.white, // El cursor ahora será visible y blanco
+              selection: Colors.blueAccent.withOpacity(0.4),
+              foreground: Colors.white,
+              background: const Color(0xFF0F1319), // Fondo que combina con la app
+              black: Colors.black,
+              red: Colors.redAccent,
+              green: Colors.greenAccent,
+              yellow: Colors.yellowAccent,
+              blue: Colors.blueAccent,
+              magenta: Colors.purpleAccent,
+              cyan: Colors.cyanAccent,
+              white: Colors.white,
+              brightBlack: Colors.grey,
+              brightRed: Colors.red,
+              brightGreen: Colors.green,
+              brightYellow: Colors.yellow,
+              brightBlue: Colors.blue,
+              brightMagenta: Colors.purple,
+              brightCyan: Colors.cyan,
+              brightWhite: Colors.white,
+              //  NUEVOS PARÁMETROS OBLIGATORIOS DE LA ÚLTIMA VERSIÓN DE XTERM 
+              searchHitBackground: Colors.yellowAccent.withOpacity(0.3),
+              searchHitBackgroundCurrent: Colors.orangeAccent.withOpacity(0.5),
+              searchHitForeground: Colors.black,
+            ),
+            textStyle: const TerminalStyle(fontSize: 12),
+          ),
+        ),
       ),
     );
   }

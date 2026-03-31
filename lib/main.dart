@@ -10,13 +10,10 @@ import 'package:pro_tocol/pages/profile_screen.dart';
 import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
 
 void main() async {
-  // 1. Aseguramos que los bindings de Flutter estén listos para procesos asíncronos
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Configuramos la ruta de almacenamiento para Isar
   final dir = await getApplicationDocumentsDirectory();
 
-  // 3. Abrimos la base de datos con los esquemas de Perfil y Configuración de Servidor
   final isar = await Isar.open(
     [ProfileSchema, ServerConfigSchema],
     directory: dir.path,
@@ -40,7 +37,6 @@ class MyApp extends StatelessWidget {
   final NavigationController navigationController;
   final SSHOrchestrator sshOrchestrator;
 
-  // El constructor ya no es 'const' porque recibe objetos que se crean en tiempo de ejecución
   const MyApp({
     super.key,
     required this.profileController,
@@ -54,10 +50,14 @@ class MyApp extends StatelessWidget {
       title: 'Gestor de Perfiles',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF8B63FF)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF8B63FF),
+          brightness: Brightness.dark, 
+        ),
+        scaffoldBackgroundColor: const Color(0xFF0F1319), 
+        canvasColor: const Color(0xFF0F1319), 
         useMaterial3: true,
       ),
-      // 6. Inyectamos los controladores en la pantalla de entrada
       home: ProfileScreen(
         controller: profileController,
         navigationController: navigationController,
@@ -65,4 +65,23 @@ class MyApp extends StatelessWidget {
       ),
     );
   }
+}
+
+
+class SmoothFadeRoute extends PageRouteBuilder {
+  final Widget page;
+  
+  SmoothFadeRoute({required this.page})
+      : super(
+          pageBuilder: (context, animation, secondaryAnimation) => page,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(
+              opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+              ),
+              child: child,
+            );
+          },
+          transitionDuration: const Duration(milliseconds: 400),
+        );
 }
