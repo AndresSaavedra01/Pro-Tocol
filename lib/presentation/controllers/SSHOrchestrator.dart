@@ -1,5 +1,7 @@
-
+import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:pro_tocol/entity/GeneralConfig.dart';
 import 'package:pro_tocol/entity/SSHService.dart';
 
@@ -43,11 +45,25 @@ class SSHOrchestrator extends ChangeNotifier {
       if (success) {
         activeConnections[key] = newService;
         notifyListeners();
-        return null; // Éxito total
+        return null; // Éxito total: retorna null indicando que no hay errores
       } else {
+        developer.log('El servicio devolvió false al conectar', name: 'SSH_CONNECTION');
         return "Fallo de autenticación: Revisa tus credenciales o llave SSH.";
       }
+      
+    } on SocketException catch (e) {
+      // CAPTURA 1: Timeout o el servidor no responde
+      developer.log('Error de Socket/Red: $e', name: 'SSH_CONNECTION');
+      return "El servidor tardó mucho en responder o está apagado (Timeout).";
+      
+    } on SSHAuthFailError catch (e) {
+      // CAPTURA 2: Contraseña o llave SSH incorrecta
+      developer.log('Error de Autenticación: $e', name: 'SSH_CONNECTION');
+      return "Credenciales incorrectas. Verifica tu usuario y contraseña.";
+      
     } catch (e) {
+      // CAPTURA 3: Cualquier otro error inesperado
+      developer.log('Error General: $e', name: 'SSH_CONNECTION');
       return "Error de red: No se pudo establecer el socket con ${config.host}.";
     }
   }
