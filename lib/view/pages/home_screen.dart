@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import '../components/connection_dialog.dart';
+import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
+import '../widgets/connection_dialog.dart';
 import 'server_screen.dart';
-import 'package:pro_tocol/controller/NavigationController.dart';
-import 'package:pro_tocol/controller//SSHOrchestrator.dart';
-import 'package:pro_tocol/controller/ProfileController.dart';
-import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
-import 'package:pro_tocol/model/entities/TempSession.dart';
+import 'error_connection.dart'; // NUEVO: Importamos la pantalla de error
+import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
+import 'package:pro_tocol/presentation/controllers/ProfileController.dart';
+import 'package:pro_tocol/entity/DataBaseEntities.dart';
+import 'package:pro_tocol/entity/TempSession.dart';
 
 class HomeScreen extends StatelessWidget {
   final String profileName;
@@ -23,7 +24,6 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Escuchamos al controlador de navegación para redibujar el body y el AppBar
     return ListenableBuilder(
       listenable: navigationController,
       builder: (context, child) {
@@ -33,12 +33,11 @@ class HomeScreen extends StatelessWidget {
           appBar: AppBar(
             backgroundColor: const Color(0xFF1B2430),
             elevation: 0,
-            // TITULO ANIMADO: Hacemos que el título también tenga una transición suave
             title: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: Text(
                 _getAppBarTitle(),
-                key: ValueKey<String>(_getAppBarTitle()), // La llave indica cuándo animar
+                key: ValueKey<String>(_getAppBarTitle()), 
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
@@ -50,7 +49,6 @@ class HomeScreen extends StatelessWidget {
               )
             ],
           ),
-          // El cuerpo es dinámico y AHORA ANIMADO
           body: Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -98,7 +96,7 @@ class HomeScreen extends StatelessWidget {
       case ViewType.tempSessionView:
         final session = navigationController.selectedTempSession!;
         return ServerScreen(
-          key: const ValueKey('temp_session_view'), // KEY PARA ANIMACIÓN
+          key: const ValueKey('temp_session_view'), 
           serverName: 'Sesión Temporal',
           connectionInfo: '${session.username}@${session.host}',
           isTemporarySession: true, orchestrator: sshOrchestrator,
@@ -218,8 +216,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- COMPONENTES VISUALES ---
-
   Widget _buildSidebarHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -289,7 +285,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // --- DIÁLOGOS DE CREACIÓN ---
+  // --- DIÁLOGOS DE CREACIÓN ACTUALIZADOS CON LA PANTALLA DE ERROR ---
 
   void _showServerDialog(BuildContext context) {
     showDialog(
@@ -305,22 +301,33 @@ class HomeScreen extends StatelessWidget {
             ..password = pass
             ..port = port;
 
-          String? error = await sshOrchestrator.connect(config);
+          // Función interna para poder reintentar
+          Future<void> intentarConexion() async {
+            String? error = await sshOrchestrator.connect(config);
 
-          if (error == null) {
-            await profileController.addServer(config);
-
-            if (context.mounted) {
-              Navigator.pop(context);
-              navigationController.selectServer(profileController.activeServers.last);
-            }
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
-              );
+            if (error == null) {
+              await profileController.addServer(config);
+              if (context.mounted) {
+                Navigator.pop(context); // Cierra el formulario
+                navigationController.selectServer(profileController.activeServers.last);
+              }
+            } else {
+              // CAMBIO AQUÍ: Llamamos a la pantalla visual en lugar del SnackBar
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ErrorConnectionScreen(
+                      errorMessage: error,
+                      onRetry: intentarConexion, // Recursivo: Vuelve a intentar con los mismos datos
+                    ),
+                  ),
+                );
+              }
             }
           }
+
+          await intentarConexion();
         },
       ),
     );
@@ -341,21 +348,33 @@ class HomeScreen extends StatelessWidget {
             port: port,
           );
 
-          String? error = await sshOrchestrator.connect(newSession);
+          // Función interna para poder reintentar
+          Future<void> intentarConexionTemporal() async {
+            String? error = await sshOrchestrator.connect(newSession);
 
-          if (error == null) {
-            profileController.addTempSession(newSession);
-            if (context.mounted) {
-              Navigator.pop(context);
-              navigationController.selectTempSession(newSession);
-            }
-          } else {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(error), backgroundColor: Colors.redAccent),
-              );
+            if (error == null) {
+              profileController.addTempSession(newSession);
+              if (context.mounted) {
+                Navigator.pop(context); // Cierra el formulario
+                navigationController.selectTempSession(newSession);
+              }
+            } else {
+              // CAMBIO AQUÍ: Llamamos a la pantalla visual de error
+              if (context.mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ErrorConnectionScreen(
+                      errorMessage: error,
+                      onRetry: intentarConexionTemporal, // Recursivo: Vuelve a intentar
+                    ),
+                  ),
+                );
+              }
             }
           }
+
+          await intentarConexionTemporal();
         },
       ),
     );
