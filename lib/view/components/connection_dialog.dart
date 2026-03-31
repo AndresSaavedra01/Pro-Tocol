@@ -4,7 +4,6 @@ class ConnectionFormDialog extends StatefulWidget {
   final String title;
   final String subtitle;
   final String buttonText;
-  // Modificado para recibir los datos del formulario
   final void Function(String host, String username, String password, int port) onSubmit;
 
   const ConnectionFormDialog({
@@ -20,23 +19,46 @@ class ConnectionFormDialog extends StatefulWidget {
 }
 
 class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
+  // LLAVE PARA EL FORMULARIO (Necesaria para las validaciones)
+  final _formKey = GlobalKey<FormState>();
+
   bool isPasswordSelected = true;
   bool isPasswordVisible = false;
 
-  // Controladores para capturar el texto
   final TextEditingController _ipController = TextEditingController();
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController(); // Alias/Nombre
+  final TextEditingController _nameController = TextEditingController(); 
 
   @override
   void dispose() {
-    // Limpieza de controladores
     _ipController.dispose();
     _userController.dispose();
     _passController.dispose();
     _nameController.dispose();
     super.dispose();
+  }
+
+  // FUNCIÓN PARA VALIDAR IP O DOMINIO
+  String? _validateIpOrDomain(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'La IP o Dominio es obligatoria';
+    }
+    final ipRegExp = RegExp(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$');
+    final domainRegExp = RegExp(r'^([a-zA-Z0-9]+(-[a-zA-Z0-9]+)*\.)+[a-zA-Z]{2,}$');
+    
+    
+    if (!ipRegExp.hasMatch(value.trim()) && !domainRegExp.hasMatch(value.trim())) {
+      return 'Formato de IP o Dominio invalido';
+    }
+    return null;
+  }
+
+  String? _validateRequired(String? value, String fieldName) {
+    if (value == null || value.trim().isEmpty) {
+      return '$fieldName es obligatorio';
+    }
+    return null;
   }
 
   @override
@@ -52,156 +74,170 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
           border: Border.all(color: Colors.white10),
         ),
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cabecera
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        widget.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, color: Colors.white54, size: 20),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  widget.subtitle,
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Campos con sus respectivos controladores
-              _buildLabel('Nombre (Alias)'),
-              _buildTextField('Ej: Servidor Principal', controller: _nameController),
-              const SizedBox(height: 16),
-
-              _buildLabel('Dirección IP'),
-              _buildTextField('Ej: 192.168.1.100', controller: _ipController),
-              const SizedBox(height: 16),
-
-              _buildLabel('Usuario'),
-              _buildTextField('Ej: root, admin', controller: _userController),
-              const SizedBox(height: 16),
-
-              // Toggle Contraseña / SSH Key
-              _buildLabel('Método de autenticación'),
-              const SizedBox(height: 8),
-              Container(
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E2230),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabecera
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => isPasswordSelected = true),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isPasswordSelected ? const Color(0xFF7B52FF) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.lock_outline, color: isPasswordSelected ? Colors.white : Colors.white54, size: 16),
-                              const SizedBox(width: 8),
-                              Text('Contraseña', style: TextStyle(color: isPasswordSelected ? Colors.white : Colors.white54, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                      child: Center(
+                        child: Text(
+                          widget.title,
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: const Icon(Icons.close, color: Colors.white54, size: 20),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    widget.subtitle,
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                _buildLabel('Nombre (Alias)'),
+                _buildTextField(
+                  'Ej: Servidor Principal', 
+                  controller: _nameController,
+                  validator: (val) => _validateRequired(val, 'El nombre/alias'), // Alias obligatorio
+                ),
+                const SizedBox(height: 16),
+
+                _buildLabel('Dirección IP / Dominio'),
+                _buildTextField(
+                  'Ej: 192.168.1.100', 
+                  controller: _ipController,
+                  validator: _validateIpOrDomain, // Usa la función de validación de IP/Dominio
+                ),
+                const SizedBox(height: 16),
+
+                _buildLabel('Usuario'),
+                _buildTextField(
+                  'Ej: root, admin', 
+                  controller: _userController,
+                  validator: (val) => _validateRequired(val, 'El usuario'), // Usuario obligatorio
+                ),
+                const SizedBox(height: 16),
+
+                _buildLabel('Método de autenticación'),
+                const SizedBox(height: 8),
+                Container(
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E2230),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => isPasswordSelected = true),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isPasswordSelected ? const Color(0xFF7B52FF) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.lock_outline, color: isPasswordSelected ? Colors.white : Colors.white54, size: 16),
+                                const SizedBox(width: 8),
+                                Text('Contraseña', style: TextStyle(color: isPasswordSelected ? Colors.white : Colors.white54, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => isPasswordSelected = false),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: !isPasswordSelected ? const Color(0xFF7B52FF) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.key, color: !isPasswordSelected ? Colors.white : Colors.white54, size: 16),
+                                const SizedBox(width: 8),
+                                Text('SSH Key', style: TextStyle(color: !isPasswordSelected ? Colors.white : Colors.white54, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                _buildLabel(isPasswordSelected ? 'Contraseña' : 'Clave SSH / Ruta del archivo'),
+                _buildTextField(
+                  isPasswordSelected ? 'Ingresa la contraseña' : 'Pega tu clave o selecciona archivo',
+                  controller: _passController,
+                  isPassword: isPasswordSelected,
+                  validator: (val) => _validateRequired(val, isPasswordSelected ? 'La contraseña' : 'La clave SSH'), // Credenciales obligatorias
+                ),
+                const SizedBox(height: 24),
+
+                // BOTONES DE ACCIÓN
+                Row(
+                  children: [
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => isPasswordSelected = false),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: !isPasswordSelected ? const Color(0xFF7B52FF) : Colors.transparent,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(color: Colors.white24),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.key, color: !isPasswordSelected ? Colors.white : Colors.white54, size: 16),
-                              const SizedBox(width: 8),
-                              Text('SSH Key', style: TextStyle(color: !isPasswordSelected ? Colors.white : Colors.white54, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF9B63FF), Color(0xFF704EFE)]),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: TextButton(
+                          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                          onPressed: () {
+                            // VALIDAR ANTES DE ENVIAR
+                            if (_formKey.currentState!.validate()) {
+                              widget.onSubmit(
+                                _ipController.text.trim(),
+                                _userController.text.trim(),
+                                _passController.text,
+                                22, 
+                              );
+                            }
+                          },
+                          child: Text(widget.buttonText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-
-              _buildLabel(isPasswordSelected ? 'Contraseña' : 'Clave SSH / Ruta del archivo'),
-              _buildTextField(
-                isPasswordSelected ? 'Ingresa la contraseña' : 'Pega tu clave o selecciona archivo',
-                controller: _passController,
-                isPassword: isPasswordSelected,
-              ),
-              const SizedBox(height: 24),
-
-              // Botones de acción
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: const BorderSide(color: Colors.white24),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancelar', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF9B63FF), Color(0xFF704EFE)]),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: TextButton(
-                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                        onPressed: () {
-                          // Llamamos al onSubmit pasando los valores reales
-                          widget.onSubmit(
-                            _ipController.text,
-                            _userController.text,
-                            _passController.text,
-                            22, // Puerto por defecto, podrías añadir un campo si quieres
-                          );
-                          // El Navigator.pop suele manejarse dentro de la lógica del onSubmit en el padre,
-                          // pero lo mantenemos si prefieres que se cierre de inmediato.
-                        },
-                        child: Text(widget.buttonText, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -215,18 +251,30 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
     );
   }
 
-  // Método modificado para aceptar un controlador
-  Widget _buildTextField(String hint, {required TextEditingController controller, bool isPassword = false}) {
-    return TextField(
+  // MÉTODO _buildTextField ACTUALIZADO CON TextFormField
+  Widget _buildTextField(String hint, {required TextEditingController controller, bool isPassword = false, String? Function(String?)? validator}) {
+    return TextFormField(
       controller: controller,
       obscureText: isPassword && !isPasswordVisible,
       style: const TextStyle(color: Colors.white),
+      validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white38),
         filled: true,
         fillColor: const Color(0xFF1E2230),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        // Estilos para los bordes y el texto de error en rojo
+        errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Colors.white10),
@@ -241,9 +289,9 @@ class _ConnectionFormDialogState extends State<ConnectionFormDialog> {
         ),
         suffixIcon: isPassword
             ? IconButton(
-          icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white38, size: 20),
-          onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
-        )
+                icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white38, size: 20),
+                onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+              )
             : null,
       ),
     );
