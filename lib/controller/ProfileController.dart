@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
-import 'package:pro_tocol/model/entities//ServerModel.dart';
+import 'package:pro_tocol/model/entities/ServerModel.dart';
 
 import '../model/entities/TempSession.dart';
 

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:pro_tocol/presentation/controllers/SSHOrchestrator.dart';
-import '../widgets/connection_dialog.dart';
+
+import 'package:pro_tocol/controller/NavigationController.dart';
+import 'package:pro_tocol/controller/ProfileController.dart';
+import 'package:pro_tocol/controller/SSHOrchestrator.dart';
+import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
+import 'package:pro_tocol/model/entities/TempSession.dart';
+import 'package:pro_tocol/view/components/connection_dialog.dart';
+import 'ErrorConnectionScreen.dart';
 import 'server_screen.dart';
-import 'error_connection.dart'; 
-import 'package:pro_tocol/presentation/controllers/NavigationController.dart';
-import 'package:pro_tocol/presentation/controllers/ProfileController.dart';
-import 'package:pro_tocol/entity/DataBaseEntities.dart';
-import 'package:pro_tocol/entity/TempSession.dart';
 
 class HomeScreen extends StatelessWidget {
   final String profileName;
@@ -344,7 +345,7 @@ class HomeScreen extends StatelessWidget {
   void _showServerDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => ConnectionFormDialog(
+      builder: (dialogContext) => ConnectionFormDialog( // Cambié el nombre a dialogContext para evitar confusiones
         title: 'Crear Servidor',
         subtitle: 'Se guardará en Isar y se conectará ahora',
         buttonText: 'Guardar y Conectar',
@@ -355,23 +356,26 @@ class HomeScreen extends StatelessWidget {
             ..password = pass
             ..port = port;
 
+          // Definimos la función de intento
           Future<void> intentarConexion() async {
             String? error = await sshOrchestrator.connect(config);
 
             if (error == null) {
               await profileController.addServer(config);
               if (context.mounted) {
-                Navigator.pop(context); 
+                // Cerramos el diálogo y navegamos al home/servidor
+                Navigator.of(dialogContext).pop();
                 navigationController.selectServer(profileController.activeServers.last);
               }
             } else {
               if (context.mounted) {
+                // Si falla, vamos a la pantalla de error
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ErrorConnectionScreen(
+                    builder: (context) => SshErrorDisplay(
                       errorMessage: error,
-                      onRetry: intentarConexion, 
+                      onRetry: () => intentarConexion(), // Ajuste de VoidCallback
                     ),
                   ),
                 );
@@ -439,12 +443,13 @@ class HomeScreen extends StatelessWidget {
               }
             } else {
               if (context.mounted) {
+                // Si falla, vamos a la pantalla de error
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ErrorConnectionScreen(
+                    builder: (context) => SshErrorDisplay(
                       errorMessage: error,
-                      onRetry: intentarConexionTemporal, 
+                      onRetry: () => intentarConexionTemporal(), // Ajuste de VoidCallback
                     ),
                   ),
                 );
@@ -494,4 +499,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class ErrorConnectionScreen {
 }

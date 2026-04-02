@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pro_tocol/controller/NavigationController.dart';
-import 'package:pro_tocol/controller//SSHOrchestrator.dart';
+import 'package:pro_tocol/controller/SSHOrchestrator.dart';
 import 'package:pro_tocol/controller/ProfileController.dart';
-import 'home_screen.dart';
+import 'package:pro_tocol/view/pages/home_screen.dart';
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 
 class ProfileScreen extends StatefulWidget {

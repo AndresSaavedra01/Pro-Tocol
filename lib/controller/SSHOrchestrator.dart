@@ -1,7 +1,11 @@
 
 import 'package:flutter/material.dart';
-import 'package:pro_tocol/entity/GeneralConfig.dart';
-import 'package:pro_tocol/entity/SSHService.dart';
+
+import 'package:pro_tocol/model/entities/GeneralConfig.dart';
+import 'package:pro_tocol/model/service/SSHService.dart';
+
+
+
 
 class SSHOrchestrator extends ChangeNotifier {
   // Mapa de conexiones activas: La llave es "usuario@ip:puerto"
