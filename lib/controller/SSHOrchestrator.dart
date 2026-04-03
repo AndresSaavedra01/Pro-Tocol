@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:pro_tocol/model/entities/GeneralConfig.dart';
-import 'package:pro_tocol/model/service/SSHService.dart';
+import 'package:pro_tocol/model/services/SSHService.dart';
 
 
 

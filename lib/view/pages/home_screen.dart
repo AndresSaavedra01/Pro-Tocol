@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:pro_tocol/controller/NavigationController.dart';
-import 'package:pro_tocol/controller/ProfileController.dart';
+import 'package:pro_tocol/controller/ProfileController3.dart';
 import 'package:pro_tocol/controller/SSHOrchestrator.dart';
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 import 'package:pro_tocol/model/entities/TempSession.dart';
@@ -499,7 +499,4 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class ErrorConnectionScreen {
 }

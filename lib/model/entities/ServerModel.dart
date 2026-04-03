@@ -1,17 +1,17 @@
 
 
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
-import 'package:pro_tocol/model/service/SSHService.dart';
+import 'package:pro_tocol/model/services/SSHService.dart';
 
 
 class ServerModel {
   final ServerConfig config;
-  final SSHService ssh = SSHService();
+  final SSHService sshService = SSHService();
 
   ServerModel({required this.config});
 
   Future<bool> connect() async {
-    bool ok = await ssh.connect(config);
+    bool ok = await sshService.connect(config);
     return ok;
   }
 

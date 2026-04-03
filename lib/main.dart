@@ -1,87 +1,84 @@
+
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pro_tocol/view/pages/profile_screen.dart';
 
-import 'package:pro_tocol/controller/NavigationController.dart';
-import 'package:pro_tocol/controller/ProfileController.dart';
-import 'package:pro_tocol/controller/SSHOrchestrator.dart';
+// --- Entidades ---
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
+
+// --- DAOs ---
+import 'package:pro_tocol/model/daos/ProfileDAO.dart';
+import 'package:pro_tocol/model/daos/ServerConfigDAO.dart';
+
+// --- Repositorios ---
+import 'package:pro_tocol/model/repositories/ProfileRepository.dart';
+import 'package:pro_tocol/model/repositories/ServerRepository.dart';
+
+// --- Controladores ---
+import 'package:pro_tocol/controller/ProfileController.dart';
+import 'package:pro_tocol/controller/ServerController.dart';
+import 'package:pro_tocol/vista/pages/ProfilePage.dart';
+import 'package:pro_tocol/vista/theme/AppTheme.dart';
+
+// --- Vistas ---
 
 
 void main() async {
+  // 1. Asegurar que los bindings de Flutter estén listos antes de ejecutar código asíncrono
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 2. Inicializar Isar Database
+  // Necesitamos una ruta segura en el dispositivo para guardar los datos
   final dir = await getApplicationDocumentsDirectory();
 
   final isar = await Isar.open(
-    [ProfileSchema, ServerConfigSchema],
+    [ProfileSchema, ServerConfigSchema], // Esquemas generados por build_runner
     directory: dir.path,
   );
 
-  // 4. Instanciamos los controladores (nuestro "cerebro" global)
-  final profileController = ProfileController(isar: isar);
-  final navigationController = NavigationController();
-  final sshOrchestrator = SSHOrchestrator();
+  // 3. Inyección de Dependencias (Manual)
+  // Construimos las capas de abajo hacia arriba
 
-  // 5. Corremos la App pasando los controladores por constructor
+  // a. Capa de Acceso a Datos
+  final profileDAO = ProfileDAO(isar);
+  final serverConfigDAO = ServerConfigDAO(isar);
+
+  // b. Capa de Repositorios
+  final profileRepository = ProfileRepository(profileDAO);
+  final serverRepository = ServerRepository(serverConfigDAO);
+
+  // c. Capa de Controladores (Reglas de negocio y estado en memoria)
+  final profileController = ProfileController(profileRepository);
+  final serverController = ServerController(serverRepository, profileRepository);
+
+  // 4. Arrancar la aplicación inyectando los controladores en la raíz
   runApp(MyApp(
     profileController: profileController,
-    navigationController: navigationController,
-    sshOrchestrator: sshOrchestrator,
+    serverController: serverController,
   ));
 }
 
 class MyApp extends StatelessWidget {
   final ProfileController profileController;
-  final NavigationController navigationController;
-  final SSHOrchestrator sshOrchestrator;
+  final ServerController serverController;
 
   const MyApp({
-    super.key,
+    Key? key,
     required this.profileController,
-    required this.navigationController,
-    required this.sshOrchestrator
-  });
+    required this.serverController,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Gestor de Perfiles',
+      title: 'Pro-Tocol SSH',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF8B63FF),
-          brightness: Brightness.dark, 
-        ),
-        scaffoldBackgroundColor: const Color(0xFF0F1319), 
-        canvasColor: const Color(0xFF0F1319), 
-        useMaterial3: true,
-      ),
-      home: ProfileScreen(
-        controller: profileController,
-        navigationController: navigationController,
-        sshOrchestrator: sshOrchestrator,
+      theme: AppTheme.darkTheme,
+      // Iniciamos directamente en la página de perfiles
+      home: ProfilesPage(
+        profileController: profileController,
+        serverController: serverController,
       ),
     );
   }
-}
-
-
-class SmoothFadeRoute extends PageRouteBuilder {
-  final Widget page;
-  
-  SmoothFadeRoute({required this.page})
-      : super(
-          pageBuilder: (context, animation, secondaryAnimation) => page,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: Tween<double>(begin: 0.0, end: 1.0).animate(
-                CurvedAnimation(parent: animation, curve: Curves.easeInOut),
-              ),
-              child: child,
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 400),
-        );
 }

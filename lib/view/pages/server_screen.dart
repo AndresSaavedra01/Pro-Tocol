@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pro_tocol/controller/SSHOrchestrator.dart';
-import 'package:pro_tocol/model/service/SSHService.dart';
+import 'package:pro_tocol/model/services/SSHService.dart';
 import '../../model/entities/FileNode.dart';
 
 class ServerScreen extends StatefulWidget {
