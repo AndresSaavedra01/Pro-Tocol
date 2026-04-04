@@ -1,54 +1,102 @@
 import 'package:flutter/material.dart';
+import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
+
+import '../theme/AppColors.dart';
 
 class CustomSidebar extends StatelessWidget {
-  final String currentServer;
-  final Function(String name, String info, bool isTemp) onNavigate;
+  final List<ServerConfig> servers;
+  final List<ServerConfig> tempSessions;
+
+  final ServerConfig? activeServer;
+  final ServerConfig? activeTempSession;
+
+  // Callbacks para Servidores Isar
+  final VoidCallback onAddServer;
+  final Function(ServerConfig) onSelectServer;
+  final Function(ServerConfig) onEditServer;
+  final Function(ServerConfig) onDeleteServer;
+
+  // Callbacks para Sesiones Temporales
+  final VoidCallback onAddTempSession;
+  final Function(ServerConfig) onSelectTempSession;
+  final Function(ServerConfig) onEditTempSession;
+  final Function(ServerConfig) onDeleteTempSession;
 
   const CustomSidebar({
     super.key,
-    required this.currentServer,
-    required this.onNavigate,
+    required this.servers,
+    required this.tempSessions,
+    this.activeServer,
+    this.activeTempSession,
+    required this.onAddServer,
+    required this.onSelectServer,
+    required this.onEditServer,
+    required this.onDeleteServer,
+    required this.onAddTempSession,
+    required this.onSelectTempSession,
+    required this.onEditTempSession,
+    required this.onDeleteTempSession,
   });
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: const Color(0xFF041614),
+      backgroundColor: AppColors.background,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
-            const Divider(color: Colors.white10),
+            const Divider(color: AppColors.border, height: 1),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 children: [
-                  _buildSection(
-                    title: 'Servidores',
-                    icon: Icons.storage_outlined,
-                    items: [
-                      _buildItem(
-                        title: 'Servidor Principal',
-                        hasStatus: true,
-                        isActive: currentServer == 'Servidor Principal',
-                        onTap: () => onNavigate('Servidor Principal', '192.168.1.10', false),
-                      ),
-                    ],
-                  ),
+                  // --- SECCIÓN: SERVIDORES ---
+                  _buildSectionHeader('Servidores', Icons.dns_outlined, onAddServer),
+                  ...servers.map((server) => _buildItem(
+                    title: server.host,
+                    subtitle: server.username,
+                    hasStatus: true,
+                    isActive: activeServer?.id == server.id,
+                    onTap: () {
+                      Navigator.pop(context); // Cierra el Drawer
+                      onSelectServer(server);
+                    },
+                    onEdit: () {
+                      Navigator.pop(context);
+                      onEditServer(server);
+                    },
+                    onDelete: () {
+                      Navigator.pop(context);
+                      onDeleteServer(server);
+                    },
+                  )),
+
                   const SizedBox(height: 20),
-                  _buildSection(
-                    title: 'Sesiones Temporales',
-                    icon: Icons.access_time,
-                    items: [
-                      _buildItem(
-                        title: 'Sesión de Prueba',
-                        subtitle: 'En uso',
-                        isActive: currentServer == 'Sesión de Prueba',
-                        onTap: () => onNavigate('Sesión de Prueba', '10.0.0.5', true),
-                      ),
-                    ],
-                  ),
+                  const Divider(color: AppColors.border, height: 1),
+                  const SizedBox(height: 10),
+
+                  // --- SECCIÓN: SESIONES TEMPORALES ---
+                  _buildSectionHeader('Sesiones Temporales', Icons.access_time, onAddTempSession),
+                  ...tempSessions.map((session) => _buildItem(
+                    title: session.host,
+                    subtitle: session.username,
+                    hasStatus: false,
+                    isActive: activeTempSession?.id == session.id,
+                    onTap: () {
+                      Navigator.pop(context);
+                      onSelectTempSession(session);
+                    },
+                    onEdit: () {
+                      Navigator.pop(context);
+                      onEditTempSession(session);
+                    },
+                    onDelete: () {
+                      Navigator.pop(context);
+                      onDeleteTempSession(session);
+                    },
+                  )),
                 ],
               ),
             ),
@@ -64,9 +112,9 @@ class CustomSidebar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Menú', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text('Menú', style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white54),
+            icon: const Icon(Icons.close, color: AppColors.textMuted),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -74,50 +122,69 @@ class CustomSidebar extends StatelessWidget {
     );
   }
 
-  Widget _buildSection({required String title, required IconData icon, required List<Widget> items}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: Colors.white54, size: 18),
-            const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.w600)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...items,
-      ],
+  Widget _buildSectionHeader(String title, IconData icon, VoidCallback onAdd) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0, top: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: AppColors.textMuted, size: 20),
+              const SizedBox(width: 10),
+              Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.add, color: AppColors.textMuted, size: 20),
+            onPressed: onAdd,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildItem({required String title, String? subtitle, bool hasStatus = false, bool isActive = false, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF8B63FF).withOpacity(0.1) : const Color(0xFF1E1E26),
-          borderRadius: BorderRadius.circular(12),
-          border: isActive ? Border.all(color: const Color(0xFF8B63FF), width: 1) : null,
-        ),
-        child: Row(
+  Widget _buildItem({
+    required String title,
+    String? subtitle,
+    bool hasStatus = false,
+    bool isActive = false,
+    required VoidCallback onTap,
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isActive ? AppColors.surfaceHighlight : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+        leading: hasStatus
+            ? CircleAvatar(radius: 4, backgroundColor: isActive ? AppColors.success : Colors.white24)
+            : const CircleAvatar(radius: 4, backgroundColor: Colors.transparent), // Espaciador para alinear
+        title: Text(title, style: TextStyle(color: isActive ? AppColors.primary : AppColors.textPrimary, fontSize: 14, fontWeight: isActive ? FontWeight.bold : FontWeight.normal)),
+        subtitle: subtitle != null ? Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)) : null,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (hasStatus) ...[
-              const CircleAvatar(radius: 4, backgroundColor: Colors.greenAccent),
-              const SizedBox(width: 12),
-            ],
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: TextStyle(color: isActive ? Colors.white : Colors.white70, fontWeight: FontWeight.bold)),
-                  if (subtitle != null) Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 12)),
-                ],
-              ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: AppColors.textMuted, size: 20),
+              onPressed: onEdit,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
-            const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 12),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+              onPressed: onDelete,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
           ],
         ),
       ),

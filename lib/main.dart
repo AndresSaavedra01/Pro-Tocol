@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pro_tocol/controller/TempSessionController.dart';
 
 // --- Entidades ---
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
@@ -17,8 +18,8 @@ import 'package:pro_tocol/model/repositories/ServerRepository.dart';
 // --- Controladores ---
 import 'package:pro_tocol/controller/ProfileController.dart';
 import 'package:pro_tocol/controller/ServerController.dart';
+import 'package:pro_tocol/model/repositories/TempSessionRepository.dart';
 import 'package:pro_tocol/view/pages/ProfilePage.dart';
-import 'package:pro_tocol/view/theme/AppColors.dart';
 
 // --- Vistas ---
 
@@ -46,26 +47,31 @@ void main() async {
   // b. Capa de Repositorios
   final profileRepository = ProfileRepository(profileDAO);
   final serverRepository = ServerRepository(serverConfigDAO);
+  final tempSessionRepository = TempSessionRepository();
 
   // c. Capa de Controladores (Reglas de negocio y estado en memoria)
   final profileController = ProfileController(profileRepository);
   final serverController = ServerController(serverRepository, profileRepository);
+  final tempSessionController =  TempSessionController(tempSessionRepository);
 
   // 4. Arrancar la aplicación inyectando los controladores en la raíz
   runApp(MyApp(
     profileController: profileController,
     serverController: serverController,
+    tempSessionController: tempSessionController,
   ));
 }
 
 class MyApp extends StatelessWidget {
   final ProfileController profileController;
   final ServerController serverController;
+  final TempSessionController tempSessionController;
 
   const MyApp({
     Key? key,
     required this.profileController,
     required this.serverController,
+    required this.tempSessionController
   }) : super(key: key);
 
   @override
@@ -77,6 +83,7 @@ class MyApp extends StatelessWidget {
       home: ProfilePage(
         profileController: profileController,
         serverController: serverController,
+        tempSessionController: tempSessionController,
       ),
     );
   }

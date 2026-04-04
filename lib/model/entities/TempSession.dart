@@ -1,24 +1,12 @@
 
+import 'package:pro_tocol/model/entities/TempSessionConfig.dart';
+import 'package:pro_tocol/model/services/SSHService.dart';
 
-import 'package:pro_tocol/model/entities/GeneralConfig.dart';
 
-class TempSession implements GeneralConfig {
-  @override
-  final String host;
-  @override
-  final String username;
-  @override
-  final int port;
-  @override
-  final String? password;
-  @override
-  final String? privateKey;
+class TempSession {
+  final TempSessionConfig config;
+  final SSHService sshService = SSHService();
 
-  TempSession({
-    required this.host,
-    required this.username,
-    this.port = 22,
-    required this.password,
-    this.privateKey
-  });
+  TempSession({required this.config});
+
 }

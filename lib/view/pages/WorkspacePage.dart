@@ -6,22 +6,28 @@ import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 
 import 'package:pro_tocol/view/components/connection_dialog.dart';
 import 'package:pro_tocol/view/components/SshErrorDisplay.dart';
+import 'package:pro_tocol/view/components/custom_sidebar.dart';
 
+import '../../controller/TempSessionController.dart';
+import '../../model/entities/TempSessionConfig.dart';
 import '../theme/AppColors.dart';
 import 'ServerPage.dart';
+import 'TempSessionPage.dart';
 
-enum ViewType { home, serverView, tempSessionView, loading } // <-- Añadido estado Loading
+enum ViewType { home, serverView, tempSessionView, loading }
 
 class WorkspacePage extends StatefulWidget {
   final Profile profile;
   final ProfileController profileController;
   final ServerController serverController;
+  final TempSessionController tempSessionController; // <--- NUEVO
 
   const WorkspacePage({
     super.key,
     required this.profile,
     required this.profileController,
     required this.serverController,
+    required this.tempSessionController, // <--- REQUERIDO
   });
 
   @override
@@ -31,9 +37,8 @@ class WorkspacePage extends StatefulWidget {
 class _WorkspacePageState extends State<WorkspacePage> {
   ViewType _currentView = ViewType.home;
   ServerConfig? _selectedServer;
-  ServerConfig? _selectedTempSession;
-
-  final List<ServerConfig> _tempSessions = [];
+  TempSessionConfig? _selectedTempSession; // <--- CAMBIO DE TIPO
+  final List<TempSessionConfig> _tempConfigs = [];
 
   @override
   void initState() {
@@ -54,10 +59,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
   }
 
-  // --- NUEVA LÓGICA DE COMPROBACIÓN DE CONEXIÓN ---
-
   Future<void> _selectServer(ServerConfig server) async {
-    // 1. Mostrar estado de carga en la UI
     setState(() {
       _currentView = ViewType.loading;
       _selectedServer = server;
@@ -65,59 +67,48 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
 
     try {
-      // 2. Intentar conectar
       await widget.serverController.connectToServer(server);
-
-      // 3. Si tiene éxito, ir a la vista del servidor
-      if (mounted) {
-        setState(() {
-          _currentView = ViewType.serverView;
-        });
-      }
+      if (mounted) setState(() => _currentView = ViewType.serverView);
     } catch (e) {
-      // 4. Si falla, ir al Home y mostrar la pantalla de error
       if (mounted) {
-        _goHome(); // Reseteamos la vista principal
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SshErrorDisplay(
-              errorMessage: e.toString(),
-              onRetry: () => Navigator.pop(context),
-            ),
+        _goHome();
+        Navigator.push(context, MaterialPageRoute(
+          builder: (context) => SshErrorDisplay(
+            errorMessage: e.toString(),
+            onRetry: () => Navigator.pop(context),
           ),
-        );
+        ));
       }
     }
   }
 
-  Future<void> _selectTempSession(ServerConfig session) async {
-    // Exactamente la misma lógica para las sesiones temporales
+  Future<void> _selectTempSession(TempSessionConfig config) async {
     setState(() {
       _currentView = ViewType.loading;
-      _selectedTempSession = session;
+      _selectedTempSession = config;
       _selectedServer = null;
     });
 
     try {
-      await widget.serverController.connectToServer(session);
-      if (mounted) {
-        setState(() {
-          _currentView = ViewType.tempSessionView;
-        });
-      }
+      // Intentamos conectar usando el controlador de sesiones temporales
+      await widget.tempSessionController.createAndConnect(
+        host: config.host,
+        username: config.username,
+        port: config.port,
+        password: config.password,
+        privateKey: config.privateKey,
+      );
+
+      if (mounted) setState(() => _currentView = ViewType.tempSessionView);
     } catch (e) {
       if (mounted) {
         _goHome();
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SshErrorDisplay(
-              errorMessage: e.toString(),
-              onRetry: () => Navigator.pop(context),
-            ),
+        Navigator.push(context, MaterialPageRoute(
+          builder: (context) => SshErrorDisplay(
+            errorMessage: e.toString(),
+            onRetry: () => Navigator.pop(context),
           ),
-        );
+        ));
       }
     }
   }
@@ -126,7 +117,53 @@ class _WorkspacePageState extends State<WorkspacePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      drawer: _buildSidebar(context),
+      drawer: CustomSidebar(
+        servers: widget.profile.servers.toList(),
+        tempSessions: _tempConfigs.map((c) => ServerConfig()
+          ..host = c.host
+          ..username = c.username
+          ..id = c.host.hashCode
+        ).toList(),
+
+        activeServer: _selectedServer,
+        // Para que el resaltado funcione con sesiones temporales:
+        activeTempSession: _selectedTempSession != null
+            ? (ServerConfig()..host = _selectedTempSession!.host..id = _selectedTempSession!.host.hashCode)
+            : null,
+
+        onAddServer: () => _showServerDialog(context),
+        onSelectServer: _selectServer,
+        onEditServer: (s) => _showEditServerDialog(context, s),
+        onDeleteServer: (s) {
+          _confirmDelete(context, s.host, () async {
+            await widget.serverController.deleteServer(s.id);
+            if (_selectedServer?.id == s.id) _goHome();
+            _refreshServers();
+          });
+        },
+
+        onAddTempSession: () => _showTempSessionDialog(context),
+        onSelectTempSession: (s) {
+          final config = _tempConfigs.firstWhere((c) => c.host == s.host);
+          _selectTempSession(config);
+        },
+
+        // CORRECCIÓN: Implementación del método de editar
+        onEditTempSession: (s) {
+          final config = _tempConfigs.firstWhere((c) => c.host == s.host);
+          _showEditTempSessionDialog(context, config);
+        },
+
+        onDeleteTempSession: (s) {
+          _confirmDelete(context, s.host, () async {
+            await widget.tempSessionController.disconnectAndRemove(s.host);
+            setState(() {
+              _tempConfigs.removeWhere((c) => c.host == s.host);
+              if (_selectedTempSession?.host == s.host) _goHome();
+            });
+          });
+        },
+      ),
       appBar: AppBar(
         backgroundColor: AppColors.surface,
         elevation: 0,
@@ -151,11 +188,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
         decoration: AppTheme.mainBackground,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 400),
-          switchInCurve: Curves.easeIn,
-          switchOutCurve: Curves.easeOut,
-          transitionBuilder: (Widget child, Animation<double> animation) {
-            return FadeTransition(opacity: animation, child: child);
-          },
           child: _buildMainContent(),
         ),
       ),
@@ -179,30 +211,21 @@ class _WorkspacePageState extends State<WorkspacePage> {
   Widget _buildMainContent() {
     switch (_currentView) {
       case ViewType.loading:
-      // Añadido un loading elegante con el tema de la app
         return const Center(
-          key: ValueKey('loading_view'),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: AppColors.primary),
-              SizedBox(height: 16),
-              Text('Estableciendo conexión...', style: TextStyle(color: AppColors.textSecondary)),
-            ],
-          ),
+          child: CircularProgressIndicator(color: AppColors.primary),
         );
       case ViewType.serverView:
         return ServerPage(
-          key: ValueKey('server_view_${_selectedServer!.id}'),
+          key: ValueKey('server_${_selectedServer!.id}'),
           serverConfig: _selectedServer!,
           serverController: widget.serverController,
         );
       case ViewType.tempSessionView:
-        return ServerPage(
-          key: ValueKey('temp_session_view_${_selectedTempSession!.id}'),
-          serverConfig: _selectedTempSession!,
-          serverController: widget.serverController,
-          isTemporarySession: true,
+      // --- AQUÍ USAMOS LA NUEVA PÁGINA ---
+        return TempSessionPage(
+          key: ValueKey('temp_${_selectedTempSession!.host}'),
+          tempConfig: _selectedTempSession!,
+          tempController: widget.tempSessionController,
         );
       case ViewType.home:
       default:
@@ -213,7 +236,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String _getAppBarTitle() {
     if (_currentView == ViewType.serverView) return "Servidor";
     if (_currentView == ViewType.tempSessionView) return "Terminal";
-    if (_currentView == ViewType.loading) return "Conectando..."; // Título al cargar
+    if (_currentView == ViewType.loading) return "Conectando...";
     return "Inicio";
   }
 
@@ -253,6 +276,8 @@ class _WorkspacePageState extends State<WorkspacePage> {
   }
 
   void _confirmDelete(BuildContext context, String itemName, VoidCallback onConfirm) {
+    // Si tienes el dialog oscuro modularizado, úsalo aquí.
+    // De momento mantengo la misma lógica de UI que tenías en WorkspacePage.
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -278,164 +303,6 @@ class _WorkspacePageState extends State<WorkspacePage> {
     );
   }
 
-  Widget _buildSidebar(BuildContext context) {
-    final servers = widget.profile.servers.toList();
-
-    return Drawer(
-      backgroundColor: AppColors.background,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSidebarHeader(context),
-            const Divider(color: AppColors.border, height: 1),
-
-            _buildSectionHeader('Servidores', Icons.dns_outlined, () => _showServerDialog(context)),
-            Expanded(
-              flex: 1,
-              child: ListView.builder(
-                itemCount: servers.length,
-                itemBuilder: (context, index) {
-                  final server = servers[index];
-                  return _buildSidebarItem(
-                    title: server.host,
-                    isActive: _selectedServer?.id == server.id,
-                    isSession: false,
-                    subtitle: server.username,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _selectServer(server); // <-- Ahora llama al método asíncrono
-                    },
-                    onEdit: () {
-                      Navigator.pop(context);
-                      _showEditServerDialog(context, server);
-                    },
-                    onDelete: () {
-                      _confirmDelete(context, server.host, () async {
-                        await widget.serverController.deleteServer(server.id);
-                        if (_selectedServer?.id == server.id) _goHome();
-                        _refreshServers();
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-
-            const Divider(color: AppColors.border, height: 1),
-
-            _buildSectionHeader('Sesiones Temporales', Icons.access_time, () => _showTempSessionDialog(context)),
-            Expanded(
-              flex: 1,
-              child: ListView.builder(
-                itemCount: _tempSessions.length,
-                itemBuilder: (context, index) {
-                  final session = _tempSessions[index];
-                  return _buildSidebarItem(
-                    title: session.host,
-                    isActive: _selectedTempSession?.id == session.id,
-                    isSession: true,
-                    subtitle: session.username,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _selectTempSession(session); // <-- Ahora llama al método asíncrono
-                    },
-                    onEdit: () {
-                      Navigator.pop(context);
-                      _showEditTempSessionDialog(context, session);
-                    },
-                    onDelete: () {
-                      _confirmDelete(context, session.host, () async {
-                        await widget.serverController.disconnectFromServer(session.id);
-                        setState(() {
-                          _tempSessions.remove(session);
-                          if (_selectedTempSession?.id == session.id) _goHome();
-                        });
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSidebarHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Menú', style: TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
-          IconButton(
-            icon: const Icon(Icons.close, color: AppColors.textMuted),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, IconData icon, VoidCallback onAdd) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 10, 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: AppColors.textMuted, size: 20),
-              const SizedBox(width: 10),
-              Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.add, color: AppColors.textMuted, size: 20),
-            onPressed: onAdd,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarItem({
-    required String title,
-    required bool isActive,
-    required bool isSession,
-    required String subtitle,
-    required VoidCallback onTap,
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.surfaceHighlight : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: ListTile(
-          onTap: onTap,
-          leading: isSession
-              ? null
-              : CircleAvatar(radius: 4, backgroundColor: isActive ? AppColors.success : Colors.white24),
-          title: Text(title, style: TextStyle(color: isActive ? AppColors.primary : AppColors.textPrimary, fontSize: 14)),
-          subtitle: Text(subtitle, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(icon: const Icon(Icons.edit_outlined, color: AppColors.textMuted, size: 20), onPressed: onEdit),
-              IconButton(icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20), onPressed: onDelete),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showServerDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -454,9 +321,9 @@ class _WorkspacePageState extends State<WorkspacePage> {
             );
 
             if (context.mounted) {
-              Navigator.of(dialogContext).pop(); // Cierra el form
-              await _refreshServers(); // Actualiza el drawer
-              _selectServer(newServer); // Inicia la conexión desde la UI
+              Navigator.of(dialogContext).pop();
+              await _refreshServers();
+              _selectServer(newServer);
             }
           } catch (e) {
             if (context.mounted) {
@@ -498,48 +365,48 @@ class _WorkspacePageState extends State<WorkspacePage> {
       context: context,
       builder: (dialogContext) => ConnectionFormDialog(
         title: 'Nueva Sesión Temporal',
-        subtitle: 'Los datos no se guardarán al cerrar la app',
-        buttonText: 'Conectar Ahora',
+        subtitle: 'Los datos no se guardarán al cerrar la app', // Agregado
+        buttonText: 'Conectar Ahora', // Agregado
         onSubmit: (host, user, pass, port) async {
-          final tempSession = ServerConfig()
-            ..id = DateTime.now().millisecondsSinceEpoch
-            ..host = host
-            ..username = user
-            ..password = pass
-            ..port = port;
-
-          if (context.mounted) {
-            setState(() => _tempSessions.add(tempSession));
-            Navigator.pop(dialogContext); // Cierra form
-            _selectTempSession(tempSession); // Inicia conexión desde la UI
-          }
+          final config = TempSessionConfig(
+            host: host,
+            username: user,
+            password: pass,
+            port: port,
+          );
+          setState(() => _tempConfigs.add(config));
+          Navigator.pop(dialogContext);
+          _selectTempSession(config);
         },
       ),
     );
   }
 
-  void _showEditTempSessionDialog(BuildContext context, ServerConfig session) {
+// CORRECCIÓN: Ahora recibe TempSessionConfig en lugar de ServerConfig
+  void _showEditTempSessionDialog(BuildContext context, TempSessionConfig config) {
     showDialog(
       context: context,
       builder: (dialogContext) => ConnectionFormDialog(
         title: 'Editar Sesión Temporal',
         subtitle: 'Actualiza los datos para esta sesión',
         buttonText: 'Actualizar',
-        initialHost: session.host,
-        initialUser: session.username,
-        initialPass: session.password,
+        initialHost: config.host,
+        initialUser: config.username,
+        initialPass: config.password,
         onSubmit: (host, user, pass, port) async {
-          await widget.serverController.disconnectFromServer(session.id);
+          // Usamos el controlador temporal para desconectar por host
+          await widget.tempSessionController.disconnectAndRemove(config.host);
+
           setState(() {
-            session.host = host;
-            session.username = user;
-            session.password = pass;
-            session.port = port;
+            config.host = host;
+            config.username = user;
+            config.password = pass;
+            config.port = port;
           });
-          // Si está editando y guardando, re-conectar inmediatamente.
+
           if (context.mounted) {
             Navigator.pop(dialogContext);
-            _selectTempSession(session);
+            _selectTempSession(config); // Reconecta con los nuevos datos
           }
         },
       ),

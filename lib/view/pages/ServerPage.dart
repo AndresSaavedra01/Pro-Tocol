@@ -8,7 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:pro_tocol/controller/ServerController.dart';
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 import 'package:pro_tocol/model/entities/FileNode.dart';
-import 'package:pro_tocol/model/entities/ServerModel.dart';
+import 'package:pro_tocol/model/entities/Server.dart';
 
 import '../theme/AppColors.dart';
 
@@ -30,7 +30,7 @@ class ServerPage extends StatefulWidget {
 
 class _ServerPageState extends State<ServerPage> {
   late final Terminal terminal;
-  ServerModel? _activeServer;
+  Server? _activeServer;
   Timer? _metricsTimer;
 
   String currentPath = "/";

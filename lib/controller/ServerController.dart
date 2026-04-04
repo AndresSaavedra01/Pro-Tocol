@@ -1,5 +1,5 @@
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
-import 'package:pro_tocol/model/entities/ServerModel.dart';
+import 'package:pro_tocol/model/entities/Server.dart';
 import 'package:pro_tocol/model/repositories/ServerRepository.dart';
 import 'package:pro_tocol/model/repositories/ProfileRepository.dart';
 import 'package:pro_tocol/model/entities/ServerMetrics.dart';
@@ -9,7 +9,7 @@ class ServerController {
   final ProfileRepository _profileRepository;
 
   // MAPA VITAL: Mantiene vivas las conexiones. La llave es el ID del ServerConfig.
-  final Map<int, ServerModel> _activeConnections = {};
+  final Map<int, Server> _activeConnections = {};
 
   ServerController(this._serverRepository, this._profileRepository);
 
@@ -87,7 +87,7 @@ class ServerController {
   }
 
   /// Utilidad interna para asegurar que operamos sobre un servidor activo
-  ServerModel getActiveServer(int serverId) {
+  Server getActiveServer(int serverId) {
     final server = _activeConnections[serverId];
     if (server == null || !server.sshService.isConnected) {
       throw Exception('El servidor no está conectado. Conecta primero antes de ejecutar comandos.');

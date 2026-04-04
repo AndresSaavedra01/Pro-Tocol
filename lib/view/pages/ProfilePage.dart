@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pro_tocol/controller/TempSessionController.dart';
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 import 'package:pro_tocol/controller/ProfileController.dart';
 import 'package:pro_tocol/controller/ServerController.dart';
@@ -9,11 +10,13 @@ import 'WorkspacePage.dart';
 class ProfilePage extends StatefulWidget {
   final ProfileController profileController;
   final ServerController serverController;
+  final TempSessionController tempSessionController;
 
   const ProfilePage({
     super.key,
     required this.profileController,
     required this.serverController,
+    required this.tempSessionController
   });
 
   @override
@@ -193,6 +196,7 @@ class _ProfileScreenState extends State<ProfilePage> {
               profile: perfil,
               profileController: widget.profileController,
               serverController: widget.serverController,
+              tempSessionController: widget.tempSessionController,
             ),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
               return FadeTransition(
