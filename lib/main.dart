@@ -17,8 +17,8 @@ import 'package:pro_tocol/model/repositories/ServerRepository.dart';
 // --- Controladores ---
 import 'package:pro_tocol/controller/ProfileController.dart';
 import 'package:pro_tocol/controller/ServerController.dart';
-import 'package:pro_tocol/vista/pages/ProfilePage.dart';
-import 'package:pro_tocol/vista/theme/AppTheme.dart';
+import 'package:pro_tocol/view/pages/ProfilePage.dart';
+import 'package:pro_tocol/view/theme/AppColors.dart';
 
 // --- Vistas ---
 
@@ -73,9 +73,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pro-Tocol SSH',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
       // Iniciamos directamente en la página de perfiles
-      home: ProfilesPage(
+      home: ProfilePage(
         profileController: profileController,
         serverController: serverController,
       ),

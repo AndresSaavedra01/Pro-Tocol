@@ -7,7 +7,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:pro_tocol/controller//NavigationController.dart';
 
 void main() {
   testWidgets('App initialization smoke test', (WidgetTester tester) async {
@@ -23,7 +22,6 @@ void main() {
 
     // Creamos versiones básicas de los controladores
     // En un entorno real de TDD, aquí usaríamos 'mockito' para simular Isar
-    final navigationController = NavigationController();
 
     // 2. Cargamos el widget pasando los parámetros que ahora son obligatorios
     // Nota: Si ProfileController(isar: isar) da error aquí por falta de Isar real,

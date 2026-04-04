@@ -4,34 +4,35 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:pro_tocol/controller/SSHOrchestrator.dart';
-import 'package:pro_tocol/model/services/SSHService.dart';
-import '../../model/entities/FileNode.dart';
 
-class ServerScreen extends StatefulWidget {
-  final String serverName;
-  final String connectionInfo;
+import 'package:pro_tocol/controller/ServerController.dart';
+import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
+import 'package:pro_tocol/model/entities/FileNode.dart';
+import 'package:pro_tocol/model/entities/ServerModel.dart';
+
+import '../theme/AppColors.dart';
+
+class ServerPage extends StatefulWidget {
+  final ServerConfig serverConfig;
+  final ServerController serverController;
   final bool isTemporarySession;
-  final SSHOrchestrator orchestrator;
 
-  const ServerScreen({
+  const ServerPage({
     super.key,
-    required this.serverName,
-    required this.connectionInfo,
-    required this.isTemporarySession,
-    required this.orchestrator,
+    required this.serverConfig,
+    required this.serverController,
+    this.isTemporarySession = false,
   });
 
   @override
-  State<ServerScreen> createState() => _ServerScreenState();
+  State<ServerPage> createState() => _ServerPageState();
 }
 
-class _ServerScreenState extends State<ServerScreen> {
+class _ServerPageState extends State<ServerPage> {
   late final Terminal terminal;
-  SSHService? _currentService;
+  ServerModel? _activeServer;
   Timer? _metricsTimer;
 
-  // --- VARIABLES DE ESTADO ---
   String currentPath = "/";
   List<FlSpot> cpuPoints = [const FlSpot(0, 0)];
   List<FlSpot> ramPoints = [const FlSpot(0, 0)];
@@ -46,72 +47,60 @@ class _ServerScreenState extends State<ServerScreen> {
   void initState() {
     super.initState();
     terminal = Terminal(maxLines: 10000);
-    _connectToOrchestrator();
+    _connectToServerController();
   }
 
   @override
   void dispose() {
-    _metricsTimer?.cancel(); // IMPORTANTE: Detener el Timer al salir
+    _metricsTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _connectToOrchestrator() async {
-    _currentService = widget.orchestrator.getService(widget.connectionInfo);
-
-    if (_currentService == null || !_currentService!.isConnected) {
-      terminal.write('\x1B[31mError: No hay conexión activa en el orquestador.\x1B[0m\r\n');
-      return;
-    }
-
+  Future<void> _connectToServerController() async {
     try {
-      final session = await _currentService!.createTerminal();
+      _activeServer = widget.serverController.getActiveServer(widget.serverConfig.id);
+      final session = await _activeServer!.sshService.createTerminal();
 
       session.stdout.listen((data) {
-        terminal.write(utf8.decode(data));
+        if (mounted) terminal.write(utf8.decode(data));
+      });
+
+      session.stderr.listen((data) {
+        if (mounted) terminal.write(utf8.decode(data));
       });
 
       terminal.onOutput = (input) {
         session.stdin.add(utf8.encode(input));
       };
 
-      terminal.write('\x1B[32mConectado a la terminal activa.\x1B[0m\r\n\n');
+      terminal.write('\x1B[32mConectado a la terminal activa de ${widget.serverConfig.host}.\x1B[0m\r\n\n');
 
-      // Iniciar servicios paralelos
       _refreshFiles();
       if (!widget.isTemporarySession) {
         _listenToSystemStats();
       }
     } catch (e) {
-      terminal.write('\x1B[31mError al sincronizar consola: $e\x1B[0m\r\n');
+      if (mounted) terminal.write('\x1B[31mError al sincronizar consola: $e\x1B[0m\r\n');
     }
   }
 
-  // --- LÓGICA DE MÉTRICAS REALES ---
   void _listenToSystemStats() {
     _metricsTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
       try {
-        if (_currentService != null && _currentService!.isConnected) {
-          final metrics = await _currentService!.fetchMetrics();
-
+        if (_activeServer != null && _activeServer!.sshService.isConnected) {
+          final metrics = await _activeServer!.sshService.fetchMetrics();
           if (mounted) {
             setState(() {
               double x = cpuPoints.length.toDouble();
-
-              // CPU
               cpuPoints.add(FlSpot(x, metrics.cpuUsage));
-
-              // RAM (Guardamos valores reales para las etiquetas)
               _totalRamMb = metrics.totalRam;
               _usedRamMb = metrics.usedRam;
               double ramPercent = (_usedRamMb / _totalRamMb) * 100;
               ramPoints.add(FlSpot(x, ramPercent));
-
-              // DISCO: Limpiamos el "%" del string (ej: "45%" -> 45.0)
               _rawDiskInfo = metrics.diskUsage;
               double diskVal = double.tryParse(_rawDiskInfo.replaceAll('%', '')) ?? 0;
               diskPoints.add(FlSpot(x, diskVal));
 
-              // Limpieza de historial (mantener 15 puntos)
               if (cpuPoints.length > 15) {
                 cpuPoints.removeAt(0);
                 ramPoints.removeAt(0);
@@ -126,13 +115,12 @@ class _ServerScreenState extends State<ServerScreen> {
     });
   }
 
-  // --- LÓGICA DE SFTP REAL ---
   Future<void> _refreshFiles() async {
-    if (_currentService?.sftp == null) return;
+    if (_activeServer?.sshService.sftp == null) return;
 
     setState(() => _isLoadingFiles = true);
     try {
-      final files = await _currentService!.sftp!.listDirectory(currentPath);
+      final files = await _activeServer!.sshService.sftp!.listDirectory(currentPath);
       if (mounted) {
         setState(() {
           currentFiles = files;
@@ -143,48 +131,37 @@ class _ServerScreenState extends State<ServerScreen> {
       if (mounted) {
         setState(() => _isLoadingFiles = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error SFTP: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("Error SFTP: $e"), backgroundColor: AppColors.error),
         );
       }
     }
   }
 
-  // --- MÉTODO PARA NAVEGACIÓN CON TRANSICIÓN SUAVE (FADE) ---
-  void navigateToScreen(Widget screen) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => screen,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final connectionString = "${widget.serverConfig.username}@${widget.serverConfig.host}";
+
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFF0F1319),
+        backgroundColor: AppColors.background,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1B2430),
+          backgroundColor: AppColors.surface,
           title: Column(
             children: [
-              Text(widget.serverName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(widget.connectionInfo, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              Text(
+                  widget.isTemporarySession ? 'Sesión Temporal' : widget.serverConfig.host,
+                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)
+              ),
+              Text(connectionString, style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
             ],
           ),
           centerTitle: true,
           bottom: widget.isTemporarySession
               ? null
               : const TabBar(
-            indicatorColor: Color(0xFF8B63FF),
-            labelColor: Colors.white,
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.textPrimary,
             tabs: [Tab(text: 'Estado'), Tab(text: 'Terminal'), Tab(text: 'Archivos')],
           ),
         ),
@@ -202,87 +179,76 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-  // --- COMPONENTES DE UI ---
-
   Widget _buildEstadoTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
-          // GRÁFICO CPU + ESTADÍSTICA
           _buildGraphContainer("Uso de CPU", Colors.blue, cpuPoints),
           _buildDetailLabel("Carga actual: ${cpuPoints.last.y.toStringAsFixed(1)}%"),
-
           const SizedBox(height: 25),
 
-          // GRÁFICO RAM + ESTADÍSTICA (MB Reales)
           _buildGraphContainer("Uso de RAM", Colors.purple, ramPoints),
           _buildDetailLabel("Memoria: $_usedRamMb MB / $_totalRamMb MB"),
-
           const SizedBox(height: 25),
 
-          // NUEVO: GRÁFICO DE DISCO (Almacenamiento)
           _buildGraphContainer("Almacenamiento (Raíz /)", Colors.orange, diskPoints),
           _buildDetailLabel("Ocupado: $_rawDiskInfo del total"),
-
           const SizedBox(height: 30),
         ],
       ),
     );
   }
 
-  // Widget auxiliar para las etiquetas de texto debajo de los gráficos
   Widget _buildDetailLabel(String text) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.only(top: 8, left: 8),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.w500),
+        style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w500),
       ),
     );
   }
-  
-  // === CAMBIO VISUAL 1: Mejoramos un poco la barra de navegación ===
+
   Widget _buildArchivosTab() {
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          color: const Color(0xFF1B2430),
+          color: AppColors.surface,
           child: Row(
             children: [
-              // BOTÓN DE RETROCEDER (CD ..)
               if (currentPath != "/")
                 Container(
                   margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B63FF).withOpacity(0.1),
+                    color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.arrow_upward, color: Color(0xFF8B63FF), size: 20),
+                    icon: const Icon(Icons.arrow_upward, color: AppColors.primary, size: 20),
                     onPressed: _goBack,
                     tooltip: "Subir un nivel",
                     padding: const EdgeInsets.all(8),
                     constraints: const BoxConstraints(),
                   ),
                 ),
-              const Icon(Icons.folder_open, color: Colors.white54, size: 20),
+              const Icon(Icons.folder_open, color: AppColors.textMuted, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   currentPath,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (_isLoadingFiles)
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8B63FF))),
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)),
             ],
           ),
         ),
-        const Divider(height: 1, color: Colors.white10),
+        const Divider(height: 1, color: AppColors.border),
         Expanded(
           child: RefreshIndicator(
             onRefresh: _refreshFiles,
@@ -296,45 +262,39 @@ class _ServerScreenState extends State<ServerScreen> {
     );
   }
 
-  // === CAMBIO VISUAL 2: Lógica de iconos y colores según tu FileType ===
   Widget _buildFileNodeItem(FileNode node) {
     final isDir = node.isDirectory;
-    
-    // Asignación de iconos y colores según FileType
     IconData nodeIcon = Icons.insert_drive_file;
-    Color iconColor = Colors.white54;
-    
+    Color iconColor = AppColors.textMuted;
+
     if (isDir) {
       nodeIcon = Icons.folder;
-      iconColor = const Color(0xFF8B63FF);
+      iconColor = AppColors.fileDir;
     } else if (node.type == FileType.txt || node.type == FileType.markdown) {
       nodeIcon = Icons.description;
-      iconColor = Colors.blueAccent;
+      iconColor = AppColors.fileTxt;
     } else if (node.type == FileType.image) {
       nodeIcon = Icons.image;
-      iconColor = Colors.purpleAccent;
+      iconColor = AppColors.fileImg;
     } else if (node.type == FileType.config) {
       nodeIcon = Icons.settings;
-      iconColor = Colors.orangeAccent;
+      iconColor = AppColors.fileCfg;
     }
 
     return ListTile(
       leading: Icon(nodeIcon, color: iconColor),
-      title: Text(node.name, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      title: Text(node.name, style: const TextStyle(color: AppColors.textPrimary, fontSize: 14)),
       subtitle: Text("${node.permissions} • ${_formatSize(node.sizeInBytes)}",
-          style: const TextStyle(color: Colors.white24, fontSize: 11)),
-      trailing: isDir ? const Icon(Icons.chevron_right, color: Colors.white24, size: 20) : null,
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
+      trailing: isDir ? const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20) : null,
       onTap: () {
         if (node.isDirectory) {
-          // Evitar bucles de navegación si el nombre es "." o ".."
           if (node.name == ".") return;
-
           setState(() {
             currentPath = node.path;
           });
           _refreshFiles();
         } else {
-          // A futuro: Aquí puedes poner lógica para descargar o abrir archivos
           debugPrint("Tocaste el archivo: ${node.name}");
         }
       },
@@ -343,33 +303,32 @@ class _ServerScreenState extends State<ServerScreen> {
 
   Widget _buildTerminalTab() {
     return Container(
-      color: Colors.black, // Fondo oscuro profundo
-      padding: const EdgeInsets.all(12.0), // Padding para que no se pegue a los bordes
+      color: AppColors.terminalBg,
+      padding: const EdgeInsets.all(12.0),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white10),
+          border: Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(8),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: TerminalView(
             terminal,
-            autofocus: true, // Esto ayuda al foco automático
+            autofocus: true,
             backgroundOpacity: 1,
-            // AQUÍ INYECTAMOS EL TEMA PARA CORREGIR EL CURSOR
             theme: TerminalTheme(
-              cursor: Colors.white, // El cursor ahora será visible y blanco
+              cursor: AppColors.textPrimary,
               selection: Colors.blueAccent.withOpacity(0.4),
-              foreground: Colors.white,
-              background: const Color(0xFF0F1319), // Fondo que combina con la app
+              foreground: AppColors.textPrimary,
+              background: AppColors.background, // Usa el fondo base oscuro
               black: Colors.black,
-              red: Colors.redAccent,
-              green: Colors.greenAccent,
+              red: AppColors.error,
+              green: AppColors.success,
               yellow: Colors.yellowAccent,
               blue: Colors.blueAccent,
               magenta: Colors.purpleAccent,
               cyan: Colors.cyanAccent,
-              white: Colors.white,
+              white: AppColors.textPrimary,
               brightBlack: Colors.grey,
               brightRed: Colors.red,
               brightGreen: Colors.green,
@@ -378,7 +337,6 @@ class _ServerScreenState extends State<ServerScreen> {
               brightMagenta: Colors.purple,
               brightCyan: Colors.cyan,
               brightWhite: Colors.white,
-              //  NUEVOS PARÁMETROS OBLIGATORIOS DE LA ÚLTIMA VERSIÓN DE XTERM 
               searchHitBackground: Colors.yellowAccent.withOpacity(0.3),
               searchHitBackgroundCurrent: Colors.orangeAccent.withOpacity(0.5),
               searchHitForeground: Colors.black,
@@ -394,21 +352,19 @@ class _ServerScreenState extends State<ServerScreen> {
     return Container(
       height: 220,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1B2430),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+      decoration: AppTheme.glassCard.copyWith(
+          color: AppColors.surface // Un poco más oscuro que el highlight
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
           Expanded(
             child: LineChart(
               LineChartData(
                 minY: 0,
-                maxY: 100, // Gráficos basados en porcentaje
+                maxY: 100,
                 lineBarsData: [
                   LineChartBarData(
                     spots: points,
@@ -439,23 +395,12 @@ class _ServerScreenState extends State<ServerScreen> {
 
   void _goBack() {
     if (currentPath == "/" || currentPath == "") return;
-
-    // Dividimos la ruta por "/"
     List<String> parts = currentPath.split('/');
-
-    // Eliminamos el último segmento (si termina en / las partes vacías se manejan)
     if (parts.last.isEmpty) parts.removeLast();
     if (parts.isNotEmpty) parts.removeLast();
-
-    // Reconstruimos la ruta
     String newPath = parts.join('/');
-
-    // Si queda vacío, es la raíz
     if (newPath.isEmpty) newPath = "/";
-
-    setState(() {
-      currentPath = newPath;
-    });
+    setState(() => currentPath = newPath);
     _refreshFiles();
   }
 }

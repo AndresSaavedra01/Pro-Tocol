@@ -1,6 +1,5 @@
 import 'package:pro_tocol/model/entities/DataBaseEntities.dart';
 import 'package:pro_tocol/model/entities/ServerModel.dart';
-import 'package:pro_tocol/model/entities/ServerModel.dart';
 import 'package:pro_tocol/model/repositories/ServerRepository.dart';
 import 'package:pro_tocol/model/repositories/ProfileRepository.dart';
 import 'package:pro_tocol/model/entities/ServerMetrics.dart';
