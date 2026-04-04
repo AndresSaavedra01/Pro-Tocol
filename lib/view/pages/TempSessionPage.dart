@@ -44,33 +44,77 @@ class _TempSessionPageState extends State<TempSessionPage> {
     super.dispose();
   }
 
+
   Future<void> _connectToTerminal() async {
     try {
       // 1. Obtenemos la sesión viva desde la memoria RAM del controlador
-      // (Recuerda quitarle el guion bajo a este método en tu TempSessionController)
       _activeSession = widget.tempController.getValidSession(widget.tempConfig.host);
 
-      // 2. Creamos la instancia interactiva (shell)
-      _shellSession = await _activeSession!.sshService.createTerminal();
+      // 2. Iniciamos la sesión con un tamaño base seguro
+      _shellSession = await _activeSession!.sshService.createTerminal(
+        width: terminal.viewWidth > 0 ? terminal.viewWidth : 80,
+        height: terminal.viewHeight > 0 ? terminal.viewHeight : 24,
+      );
 
-      // 3. Escuchamos y escribimos en los flujos de datos
+      // 3. Listener para cambios dinámicos de tamaño (rotación, teclado, etc.)
+      terminal.onResize = (width, height, cursorWidth, cursorHeight) {
+        if (width > 0 && height > 0) {
+          _shellSession?.resizeTerminal(width, height);
+        }
+      };
+
+      // --- SOLUCIÓN UNIVERSAL PARA EL CURSOR (SM-A315G) ---
+      _startUniversalSync(_shellSession!);
+
+      // 4. Escuchamos y escribimos en los flujos de datos
       _shellSession!.stdout.listen((data) {
-        if (mounted) terminal.write(utf8.decode(data));
+        if (mounted) terminal.write(utf8.decode(data, allowMalformed: true));
       });
 
       _shellSession!.stderr.listen((data) {
-        if (mounted) terminal.write(utf8.decode(data));
+        if (mounted) terminal.write(utf8.decode(data, allowMalformed: true));
       });
 
       terminal.onOutput = (input) {
         _shellSession!.stdin.add(utf8.encode(input));
       };
 
-      terminal.write('\x1B[32mConectado a la sesión temporal en ${widget.tempConfig.host}.\x1B[0m\r\n\n');
+      // Reseteamos y notificamos éxito
+      terminal.write('\x1Bc');
+      terminal.write('\x1B[32mSesión temporal sincronizada correctamente.\x1B[0m\r\n\n');
 
     } catch (e) {
-      if (mounted) terminal.write('\x1B[31mError al iniciar la terminal: $e\x1B[0m\r\n');
+      if (mounted) {
+        terminal.write('\x1B[31mError al iniciar la terminal: $e\x1B[0m\r\n');
+      }
     }
+  }
+
+  /// Bucle de sincronización activa para forzar el tamaño correcto en el servidor
+  void _startUniversalSync(SSHSession session) {
+    int attempts = 0;
+    Timer.periodic(const Duration(milliseconds: 300), (timer) async {
+      attempts++;
+
+      if (mounted && terminal.viewWidth > 0) {
+        // Sincronizamos el protocolo PTY
+        session.resizeTerminal(terminal.viewWidth, terminal.viewHeight);
+
+        // Reforzamos el driver de terminal en el servidor remoto
+        try {
+          await _activeSession!.sshService.runSingleCommand(
+              "stty cols ${terminal.viewWidth} rows ${terminal.viewHeight}"
+          );
+        } catch (e) {
+          debugPrint("Error stty: $e");
+        }
+
+        // Detenemos el bucle tras asegurar la sincronización
+        if (attempts >= 3) timer.cancel();
+      }
+
+      if (attempts > 10) timer.cancel();
+    });
   }
 
   @override

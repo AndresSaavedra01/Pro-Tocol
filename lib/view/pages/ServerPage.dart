@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -58,30 +59,81 @@ class _ServerPageState extends State<ServerPage> {
 
   Future<void> _connectToServerController() async {
     try {
+      // 1. Obtenemos el servidor del controlador
       _activeServer = widget.serverController.getActiveServer(widget.serverConfig.id);
-      final session = await _activeServer!.sshService.createTerminal();
 
+      // 2. Iniciamos la sesión con un tamaño base
+      final session = await _activeServer!.sshService.createTerminal(
+        width: terminal.viewWidth > 0 ? terminal.viewWidth : 80,
+        height: terminal.viewHeight > 0 ? terminal.viewHeight : 24,
+      );
+
+      // 3. Listener para cambios dinámicos de tamaño
+      terminal.onResize = (width, height, cursorWidth, cursorHeight) {
+        if (width > 0 && height > 0) {
+          session.resizeTerminal(width, height);
+        }
+      };
+
+      // --- SOLUCIÓN UNIVERSAL PARA EL CURSOR (SM-A315G) ---
+      _startUniversalSync(session);
+
+      // 4. Conectamos los flujos de la terminal
       session.stdout.listen((data) {
-        if (mounted) terminal.write(utf8.decode(data));
+        if (mounted) terminal.write(utf8.decode(data, allowMalformed: true));
       });
 
       session.stderr.listen((data) {
-        if (mounted) terminal.write(utf8.decode(data));
+        if (mounted) terminal.write(utf8.decode(data, allowMalformed: true));
       });
 
       terminal.onOutput = (input) {
         session.stdin.add(utf8.encode(input));
       };
 
-      terminal.write('\x1B[32mConectado a la terminal activa de ${widget.serverConfig.host}.\x1B[0m\r\n\n');
+      // Limpiamos la pantalla y notificamos éxito
+      terminal.write('\x1Bc');
+      terminal.write('\x1B[32mConexión y sincronización establecidas.\x1B[0m\r\n\n');
 
+      // --- ACTIVACIÓN DE MÉTODOS "OLVIDADOS" ---
+
+      // Cargamos los archivos por primera vez
       _refreshFiles();
+
+      // Iniciamos el Timer de métricas si no es una sesión temporal
       if (!widget.isTemporarySession) {
         _listenToSystemStats();
       }
+
     } catch (e) {
-      if (mounted) terminal.write('\x1B[31mError al sincronizar consola: $e\x1B[0m\r\n');
+      if (mounted) {
+        terminal.write('\x1B[31mError al sincronizar consola: $e\x1B[0m\r\n');
+      }
     }
+  }
+
+  /// Esta función se asegura de que el servidor tenga el tamaño real,
+  /// probando varias veces hasta que el widget esté listo.
+  void _startUniversalSync(SSHSession session) {
+    int attempts = 0;
+    Timer.periodic(const Duration(milliseconds: 300), (timer) async {
+      attempts++;
+
+      if (mounted && terminal.viewWidth > 0) {
+        // Sincronizamos el protocolo PTY
+        session.resizeTerminal(terminal.viewWidth, terminal.viewHeight);
+
+        // Reforzamos el driver de terminal en el servidor
+        await _activeServer!.sshService.runSingleCommand(
+            "stty cols ${terminal.viewWidth} rows ${terminal.viewHeight}"
+        );
+
+        // Con 3 intentos suele ser suficiente para capturar el tamaño final tras el renderizado
+        if (attempts >= 3) timer.cancel();
+      }
+
+      if (attempts > 10) timer.cancel();
+    });
   }
 
   void _listenToSystemStats() {

@@ -82,7 +82,7 @@ class SSHService {
     if (_client == null) throw Exception('Cliente no inicializado');
     return await _client!.shell(
       pty: SSHPtyConfig(
-        type: 'xterm',
+        type: 'xterm-256color',
         width: width,
         height: height,
       ),
