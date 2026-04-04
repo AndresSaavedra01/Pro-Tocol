@@ -10,7 +10,7 @@ import 'package:pro_tocol/view/components/SshErrorDisplay.dart';
 import '../theme/AppColors.dart';
 import 'ServerPage.dart';
 
-enum ViewType { home, serverView, tempSessionView }
+enum ViewType { home, serverView, tempSessionView, loading } // <-- Añadido estado Loading
 
 class WorkspacePage extends StatefulWidget {
   final Profile profile;
@@ -54,20 +54,72 @@ class _WorkspacePageState extends State<WorkspacePage> {
     });
   }
 
-  void _selectServer(ServerConfig server) {
+  // --- NUEVA LÓGICA DE COMPROBACIÓN DE CONEXIÓN ---
+
+  Future<void> _selectServer(ServerConfig server) async {
+    // 1. Mostrar estado de carga en la UI
     setState(() {
+      _currentView = ViewType.loading;
       _selectedServer = server;
-      _currentView = ViewType.serverView;
       _selectedTempSession = null;
     });
+
+    try {
+      // 2. Intentar conectar
+      await widget.serverController.connectToServer(server);
+
+      // 3. Si tiene éxito, ir a la vista del servidor
+      if (mounted) {
+        setState(() {
+          _currentView = ViewType.serverView;
+        });
+      }
+    } catch (e) {
+      // 4. Si falla, ir al Home y mostrar la pantalla de error
+      if (mounted) {
+        _goHome(); // Reseteamos la vista principal
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SshErrorDisplay(
+              errorMessage: e.toString(),
+              onRetry: () => Navigator.pop(context),
+            ),
+          ),
+        );
+      }
+    }
   }
 
-  void _selectTempSession(ServerConfig session) {
+  Future<void> _selectTempSession(ServerConfig session) async {
+    // Exactamente la misma lógica para las sesiones temporales
     setState(() {
+      _currentView = ViewType.loading;
       _selectedTempSession = session;
-      _currentView = ViewType.tempSessionView;
       _selectedServer = null;
     });
+
+    try {
+      await widget.serverController.connectToServer(session);
+      if (mounted) {
+        setState(() {
+          _currentView = ViewType.tempSessionView;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _goHome();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SshErrorDisplay(
+              errorMessage: e.toString(),
+              onRetry: () => Navigator.pop(context),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -126,6 +178,19 @@ class _WorkspacePageState extends State<WorkspacePage> {
 
   Widget _buildMainContent() {
     switch (_currentView) {
+      case ViewType.loading:
+      // Añadido un loading elegante con el tema de la app
+        return const Center(
+          key: ValueKey('loading_view'),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16),
+              Text('Estableciendo conexión...', style: TextStyle(color: AppColors.textSecondary)),
+            ],
+          ),
+        );
       case ViewType.serverView:
         return ServerPage(
           key: ValueKey('server_view_${_selectedServer!.id}'),
@@ -148,6 +213,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
   String _getAppBarTitle() {
     if (_currentView == ViewType.serverView) return "Servidor";
     if (_currentView == ViewType.tempSessionView) return "Terminal";
+    if (_currentView == ViewType.loading) return "Conectando..."; // Título al cargar
     return "Inicio";
   }
 
@@ -238,7 +304,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     subtitle: server.username,
                     onTap: () {
                       Navigator.pop(context);
-                      _selectServer(server);
+                      _selectServer(server); // <-- Ahora llama al método asíncrono
                     },
                     onEdit: () {
                       Navigator.pop(context);
@@ -272,7 +338,7 @@ class _WorkspacePageState extends State<WorkspacePage> {
                     subtitle: session.username,
                     onTap: () {
                       Navigator.pop(context);
-                      _selectTempSession(session);
+                      _selectTempSession(session); // <-- Ahora llama al método asíncrono
                     },
                     onEdit: () {
                       Navigator.pop(context);
@@ -386,11 +452,11 @@ class _WorkspacePageState extends State<WorkspacePage> {
               port: port,
               password: pass,
             );
-            await widget.serverController.connectToServer(newServer);
+
             if (context.mounted) {
-              Navigator.of(dialogContext).pop();
-              await _refreshServers();
-              _selectServer(newServer);
+              Navigator.of(dialogContext).pop(); // Cierra el form
+              await _refreshServers(); // Actualiza el drawer
+              _selectServer(newServer); // Inicia la conexión desde la UI
             }
           } catch (e) {
             if (context.mounted) {
@@ -442,17 +508,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
             ..password = pass
             ..port = port;
 
-          try {
-            await widget.serverController.connectToServer(tempSession);
-            if (context.mounted) {
-              setState(() => _tempSessions.add(tempSession));
-              Navigator.pop(dialogContext);
-              _selectTempSession(tempSession);
-            }
-          } catch (e) {
-            if (context.mounted) {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => SshErrorDisplay(errorMessage: e.toString(), onRetry: () => Navigator.pop(context))));
-            }
+          if (context.mounted) {
+            setState(() => _tempSessions.add(tempSession));
+            Navigator.pop(dialogContext); // Cierra form
+            _selectTempSession(tempSession); // Inicia conexión desde la UI
           }
         },
       ),
@@ -477,11 +536,10 @@ class _WorkspacePageState extends State<WorkspacePage> {
             session.password = pass;
             session.port = port;
           });
-          try {
-            await widget.serverController.connectToServer(session);
-            if (context.mounted) Navigator.pop(dialogContext);
-          } catch (e) {
-            debugPrint(e.toString());
+          // Si está editando y guardando, re-conectar inmediatamente.
+          if (context.mounted) {
+            Navigator.pop(dialogContext);
+            _selectTempSession(session);
           }
         },
       ),
